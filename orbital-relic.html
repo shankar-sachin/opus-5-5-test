@@ -1,0 +1,1916 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#02040a">
+<title>Orbital Relic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#e9c784; --gold-dim:rgba(233,199,132,.55); --cyan:#8fe9ff; --cyan-dim:rgba(143,233,255,.45);
+  --ink:#d7e6f4; --ink-dim:rgba(215,230,244,.52); --bg:#02040a;
+  --serif:'Cormorant Garamond',Garamond,Georgia,serif;
+  --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;color:var(--ink);font-family:var(--serif);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+#gl{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-action:none;outline:none;cursor:grab}
+#gl:active{cursor:grabbing}
+#gl.pointing{cursor:pointer}
+.hud{position:fixed;pointer-events:none;z-index:5;opacity:0;transition:opacity 1.6s ease}
+body.ready .hud{opacity:1}
+body.hud-hidden .hud{opacity:0!important}
+#title{top:max(22px,env(safe-area-inset-top));left:max(26px,env(safe-area-inset-left))}
+#title h1{margin:0;font-weight:500;font-size:clamp(14px,1.5vw,18px);letter-spacing:.46em;color:var(--gold)}
+#title .sub{margin-top:8px;font-family:var(--mono);font-size:10px;letter-spacing:.24em;color:var(--ink-dim)}
+#title .sub b{color:var(--cyan);font-weight:400}
+#clock{top:max(22px,env(safe-area-inset-top));right:max(26px,env(safe-area-inset-right));text-align:right;font-family:var(--mono);font-size:10px;letter-spacing:.24em;color:var(--ink-dim);line-height:1.9}
+#clock .state{color:var(--cyan);transition:color .6s}
+#clock .state.frozen{color:var(--gold)}
+#hint{left:max(26px,env(safe-area-inset-left));bottom:max(24px,env(safe-area-inset-bottom));max-width:calc(100vw - 440px);font-family:var(--mono);font-size:10px;letter-spacing:.18em;line-height:2;color:var(--ink-dim);transition:opacity 2s ease}
+#hint i{font-style:normal;opacity:.35;margin:0 .7em}
+body.hint-faded #hint{opacity:.28}
+#toast{left:50%;top:19%;transform:translate(-50%,6px);font-style:italic;font-size:clamp(19px,2.3vw,28px);color:var(--gold);letter-spacing:.03em;text-align:center;opacity:0!important;transition:opacity 1.4s ease,transform 1.4s ease;text-shadow:0 0 22px rgba(233,199,132,.35);width:min(90vw,760px)}
+#toast.show{opacity:1!important;transform:translate(-50%,0)}
+#tip{left:0;top:0;font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--cyan);opacity:0!important;transition:opacity .25s;white-space:nowrap;padding:7px 11px;border-left:1px solid var(--cyan-dim);background:linear-gradient(90deg,rgba(10,30,50,.5),rgba(10,30,50,0));will-change:transform}
+#tip.show{opacity:1!important}
+#tip small{display:block;color:var(--ink-dim);letter-spacing:.14em;margin-top:4px;font-size:9px}
+#ctrl{right:max(20px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));display:flex;gap:8px;pointer-events:auto}
+#ctrl button{font:10px/1 var(--mono);letter-spacing:.22em;color:var(--ink-dim);background:rgba(8,16,32,.35);border:1px solid rgba(143,233,255,.16);padding:10px 13px;cursor:pointer;transition:color .3s,border-color .3s,background .3s;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#ctrl button:hover,#ctrl button.on{color:var(--gold);border-color:var(--gold-dim);background:rgba(30,24,10,.35)}
+#ctrl button:focus-visible{outline:1px solid var(--cyan);outline-offset:2px}
+#veil{position:fixed;inset:0;background:radial-gradient(ellipse at center,#0b1630 0%,#02040a 72%);opacity:0;pointer-events:none;transition:opacity .9s ease;z-index:8}
+#veil.on{opacity:1}
+#loader{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#07101f 0%,#02040a 70%);transition:opacity 1.8s ease,visibility 1.8s;gap:26px}
+#loader.done{opacity:0;visibility:hidden}
+.sigil{position:relative;width:86px;height:86px;perspective:300px}
+.sigil i{position:absolute;inset:0;border:1px solid rgba(233,199,132,.55);border-radius:50%;animation:spin 6s linear infinite}
+.sigil i:nth-child(2){inset:10px;border-color:rgba(143,233,255,.5);animation-duration:4.2s;animation-direction:reverse;transform:rotateX(62deg)}
+.sigil i:nth-child(3){inset:20px;border-color:rgba(233,199,132,.35);animation-duration:7.5s;transform:rotateY(64deg)}
+.sigil b{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#ffe2a8;box-shadow:0 0 18px 6px rgba(255,200,120,.55);animation:breathe 2.6s ease-in-out infinite}
+@keyframes spin{from{rotate:0deg}to{rotate:360deg}}
+@keyframes breathe{0%,100%{transform:scale(.8);opacity:.7}50%{transform:scale(1.25);opacity:1}}
+.ld-title{font-size:15px;letter-spacing:.62em;color:var(--gold);margin-right:-.62em;font-weight:500}
+.ld-bar{width:200px;height:1px;background:rgba(143,233,255,.14);overflow:hidden}
+#ld-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--gold));transform-origin:left;transform:scaleX(0);transition:transform .5s ease}
+.ld-row{width:200px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;color:var(--ink-dim)}
+#ld-msg{font-style:normal}
+#ld-err{max-width:80vw;text-align:center;font-style:italic;color:var(--gold);font-size:17px;display:none}
+@media (max-width:760px){
+  #hint{font-size:8.5px;letter-spacing:.12em;left:50%;transform:translateX(-50%);max-width:none;width:94vw;text-align:center;bottom:calc(max(18px,env(safe-area-inset-bottom)) + 48px);line-height:1.9}
+  #hint i{margin:0 .4em}
+  #ctrl{left:50%;right:auto;transform:translateX(-50%)}
+  #clock{font-size:9px}
+  #title .sub{font-size:9px}
+}
+@media (max-width:560px){
+  #clock{right:auto;left:max(26px,env(safe-area-inset-left));top:calc(max(22px,env(safe-area-inset-top)) + 46px);text-align:left;line-height:1.7}
+}
+</style>
+</head>
+<body>
+<canvas id="gl" tabindex="0" aria-label="Interactive 3D scene: an ancient orbital relic"></canvas>
+
+<div id="loader" role="status" aria-live="polite">
+  <div class="sigil"><i></i><i></i><i></i><b></b></div>
+  <div class="ld-title">ORBITAL RELIC</div>
+  <div class="ld-bar"><div id="ld-fill"></div></div>
+  <div class="ld-row"><span id="ld-msg">Listening for a signal</span><span id="ld-pct">000</span></div>
+  <div id="ld-err"></div>
+</div>
+
+<div id="veil"></div>
+
+<div class="hud" id="title">
+  <h1>ORBITAL RELIC</h1>
+  <div class="sub">SPECIMEN <b id="desig">----</b> &nbsp;/&nbsp; RESONANCE <b id="reso">0</b></div>
+</div>
+<div class="hud" id="clock">
+  <div>EPOCH <span id="epoch">00:00:00.0</span></div>
+  <div class="state" id="tstate">TIME FLOWING</div>
+</div>
+<div class="hud" id="hint"></div>
+<div class="hud" id="toast"></div>
+<div class="hud" id="tip"></div>
+<div class="hud" id="ctrl">
+  <button id="b-freeze" type="button" title="Freeze time (Space)">FREEZE</button>
+  <button id="b-reset" type="button" title="Reset the scene (R)">RESET</button>
+  <button id="b-new" type="button" title="Discover a new relic (N)">NEW RELIC</button>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+} }
+</script>
+
+<script>
+  // Surface fatal load problems (e.g. CDN blocked) on the loader instead of failing silently.
+  window.__relicFail = function (msg) {
+    var e = document.getElementById('ld-err');
+    if (!e) return;
+    e.textContent = msg; e.style.display = 'block';
+    var m = document.getElementById('ld-msg'); if (m) m.textContent = 'Signal lost';
+  };
+  window.__relicBootTimer = setTimeout(function () {
+    if (!window.__relicBooted) window.__relicFail('The relic is slow to answer. Check your connection, then reload.');
+  }, 20000);
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+
+window.__relicBooted = true;
+clearTimeout(window.__relicBootTimer);
+
+/* =========================================================================
+   Utilities
+   ========================================================================= */
+const $ = (id) => document.getElementById(id);
+const TAU = Math.PI * 2;
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeOutBack = (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+const damp = (dt, rate) => 1 - Math.exp(-dt * rate);
+const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const COARSE = matchMedia('(pointer: coarse)').matches;
+const LOW = COARSE || Math.min(innerWidth, innerHeight) < 700;
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PR = Math.min(devicePixelRatio || 1, LOW ? 1.5 : 2);
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// 3D simplex noise (Gustavson), seeded permutation
+function createNoise3D(rand) {
+  const grad = new Float32Array([1,1,0,-1,1,0,1,-1,0,-1,-1,0,1,0,1,-1,0,1,1,0,-1,-1,0,-1,0,1,1,0,-1,1,0,1,-1,0,-1,-1]);
+  const p = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) p[i] = i;
+  for (let i = 255; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); const t = p[i]; p[i] = p[j]; p[j] = t; }
+  const perm = new Uint8Array(512), pm = new Uint8Array(512);
+  for (let i = 0; i < 512; i++) { perm[i] = p[i & 255]; pm[i] = (perm[i] % 12) * 3; }
+  const F3 = 1 / 3, G3 = 1 / 6;
+  return function (x, y, z) {
+    const s = (x + y + z) * F3;
+    const i = Math.floor(x + s), j = Math.floor(y + s), k = Math.floor(z + s);
+    const t = (i + j + k) * G3;
+    const x0 = x - (i - t), y0 = y - (j - t), z0 = z - (k - t);
+    let i1, j1, k1, i2, j2, k2;
+    if (x0 >= y0) {
+      if (y0 >= z0) { i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 1; k2 = 0; }
+      else if (x0 >= z0) { i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 0; k2 = 1; }
+      else { i1 = 0; j1 = 0; k1 = 1; i2 = 1; j2 = 0; k2 = 1; }
+    } else {
+      if (y0 < z0) { i1 = 0; j1 = 0; k1 = 1; i2 = 0; j2 = 1; k2 = 1; }
+      else if (x0 < z0) { i1 = 0; j1 = 1; k1 = 0; i2 = 0; j2 = 1; k2 = 1; }
+      else { i1 = 0; j1 = 1; k1 = 0; i2 = 1; j2 = 1; k2 = 0; }
+    }
+    const x1 = x0 - i1 + G3, y1 = y0 - j1 + G3, z1 = z0 - k1 + G3;
+    const x2 = x0 - i2 + 2 * G3, y2 = y0 - j2 + 2 * G3, z2 = z0 - k2 + 2 * G3;
+    const x3 = x0 - 1 + 3 * G3, y3 = y0 - 1 + 3 * G3, z3 = z0 - 1 + 3 * G3;
+    const ii = i & 255, jj = j & 255, kk = k & 255;
+    let n = 0, tt, g;
+    tt = 0.6 - x0 * x0 - y0 * y0 - z0 * z0;
+    if (tt > 0) { g = pm[ii + perm[jj + perm[kk]]]; tt *= tt; n += tt * tt * (grad[g] * x0 + grad[g + 1] * y0 + grad[g + 2] * z0); }
+    tt = 0.6 - x1 * x1 - y1 * y1 - z1 * z1;
+    if (tt > 0) { g = pm[ii + i1 + perm[jj + j1 + perm[kk + k1]]]; tt *= tt; n += tt * tt * (grad[g] * x1 + grad[g + 1] * y1 + grad[g + 2] * z1); }
+    tt = 0.6 - x2 * x2 - y2 * y2 - z2 * z2;
+    if (tt > 0) { g = pm[ii + i2 + perm[jj + j2 + perm[kk + k2]]]; tt *= tt; n += tt * tt * (grad[g] * x2 + grad[g + 1] * y2 + grad[g + 2] * z2); }
+    tt = 0.6 - x3 * x3 - y3 * y3 - z3 * z3;
+    if (tt > 0) { g = pm[ii + 1 + perm[jj + 1 + perm[kk + 1]]]; tt *= tt; n += tt * tt * (grad[g] * x3 + grad[g + 1] * y3 + grad[g + 2] * z3); }
+    return 32 * n;
+  };
+}
+function fbm(N, x, y, z, oct = 5) {
+  let a = 1, f = 1, s = 0, norm = 0;
+  for (let i = 0; i < oct; i++) { s += a * N(x * f, y * f, z * f); norm += a; a *= 0.5; f *= 2.03; }
+  return s / norm;
+}
+
+const GLSL_NOISE = /* glsl */`
+vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec4 mod289(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec4 permute(vec4 x){return mod289(((x*34.0)+1.0)*x);}
+vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}
+float snoise(vec3 v){
+  const vec2 C=vec2(1.0/6.0,1.0/3.0); const vec4 D=vec4(0.0,0.5,1.0,2.0);
+  vec3 i=floor(v+dot(v,C.yyy)); vec3 x0=v-i+dot(i,C.xxx);
+  vec3 g=step(x0.yzx,x0.xyz); vec3 l=1.0-g; vec3 i1=min(g.xyz,l.zxy); vec3 i2=max(g.xyz,l.zxy);
+  vec3 x1=x0-i1+C.xxx; vec3 x2=x0-i2+C.yyy; vec3 x3=x0-D.yyy;
+  i=mod289(i);
+  vec4 p=permute(permute(permute(i.z+vec4(0.0,i1.z,i2.z,1.0))+i.y+vec4(0.0,i1.y,i2.y,1.0))+i.x+vec4(0.0,i1.x,i2.x,1.0));
+  float n_=0.142857142857; vec3 ns=n_*D.wyz-D.xzx;
+  vec4 j=p-49.0*floor(p*ns.z*ns.z);
+  vec4 x_=floor(j*ns.z); vec4 y_=floor(j-7.0*x_);
+  vec4 x=x_*ns.x+ns.yyyy; vec4 y=y_*ns.x+ns.yyyy; vec4 h=1.0-abs(x)-abs(y);
+  vec4 b0=vec4(x.xy,y.xy); vec4 b1=vec4(x.zw,y.zw);
+  vec4 s0=floor(b0)*2.0+1.0; vec4 s1=floor(b1)*2.0+1.0; vec4 sh=-step(h,vec4(0.0));
+  vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy; vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
+  vec3 p0=vec3(a0.xy,h.x); vec3 p1=vec3(a0.zw,h.y); vec3 p2=vec3(a1.xy,h.z); vec3 p3=vec3(a1.zw,h.w);
+  vec4 norm=taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
+  p0*=norm.x; p1*=norm.y; p2*=norm.z; p3*=norm.w;
+  vec4 m=max(0.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0); m=m*m;
+  return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
+}`;
+
+function canvasTexture(w, h, draw, srgb = true) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function radialTexture(stops, size = 256) {
+  return canvasTexture(size, size, (x, w) => {
+    const g = x.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+    stops.forEach(([o, c]) => g.addColorStop(o, c));
+    x.fillStyle = g; x.fillRect(0, 0, w, w);
+  });
+}
+function disposeTree(root) {
+  root.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.isInstancedMesh) o.dispose();
+    const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (const m of mats) {
+      for (const k in m) { const v = m[k]; if (v && v.isTexture) v.dispose(); }
+      if (m.uniforms) for (const k in m.uniforms) { const v = m.uniforms[k].value; if (v && v.isTexture) v.dispose(); }
+      m.dispose();
+    }
+  });
+  root.removeFromParent();
+}
+// Adds per-vertex emission (attribute aEmit) to any built-in lit material.
+function patchEmissive(mat, color, strength) {
+  const uEmit = { value: strength }, uEmitColor = { value: new THREE.Color(color) };
+  mat.userData.uEmit = uEmit;
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uEmit = uEmit; sh.uniforms.uEmitColor = uEmitColor;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aEmit;\nvarying float vEmit;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvEmit = aEmit;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vEmit;\nuniform float uEmit;\nuniform vec3 uEmitColor;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += uEmitColor * vEmit * uEmit;');
+  };
+  mat.customProgramCacheKey = () => 'relic-emit';
+  return mat;
+}
+
+/* =========================================================================
+   Lore
+   ========================================================================= */
+const BODY_DEFS = [
+  { key: 'molten', cls: 'IGNEOUS', name: 'VESSA', epithet: 'The Ember Choir', r: 0.56,
+    atmo: [1.0, 0.42, 0.16], atmoI: 1.15, atmoP: 2.6, emitColor: 0xff6a1f, emitK: 4.2, rough: 0.82, metal: 0.05,
+    temp: '1,412 K', age: '2.9 AEONS',
+    lore: 'Its fault-lines still sing in the key the relic was tuned to. Pilgrims once pressed their ears to the cooling basalt and wept, though none of them could ever say why.',
+    comp: [['BASALT', 0.42], ['FERRIC', 0.26], ['RESONANT ASH', 0.21], ['UNNAMED', 0.11]], freqs: [2.3, 5.1, 9.7] },
+  { key: 'ice', cls: 'GLACIAL', name: 'THALUNE', epithet: 'Keeper of the Quiet Ring', r: 0.66,
+    atmo: [0.55, 0.85, 1.0], atmoI: 1.0, atmoP: 3.0, emitColor: 0x7fe6ff, emitK: 1.4, rough: 0.35, metal: 0.0,
+    temp: '38 K', age: '6.2 AEONS',
+    lore: 'A frozen archive. Every grain of its ring holds a single sealed memory, and the ring turns so that no memory is ever read twice.',
+    comp: [['WATER ICE', 0.51], ['NITROGEN', 0.19], ['SILICA', 0.18], ['SEALED MEMORY', 0.12]], freqs: [1.1, 3.3, 4.9] },
+  { key: 'gas', cls: 'JOVIAN', name: 'ORU-KAI', epithet: 'The Slow Storm', r: 1.15,
+    atmo: [1.0, 0.76, 0.48], atmoI: 0.85, atmoP: 2.3, emitColor: 0xffaa55, emitK: 0, rough: 0.7, metal: 0,
+    temp: '121 K', age: '8.8 AEONS',
+    lore: 'A storm older than the stars that light it. Its bands are a script, and its great eye is the full stop at the end of a sentence no one has finished reading.',
+    comp: [['HYDROGEN', 0.58], ['HELIUM', 0.24], ['AMMONIA', 0.1], ['SCRIPT', 0.08]], freqs: [0.6, 1.7, 2.9] },
+  { key: 'crystal', cls: 'LATTICE', name: 'THE HOLLOW SEED', epithet: 'Grown, never formed', r: 0.5,
+    atmo: [0.62, 0.55, 1.0], atmoI: 0.9, atmoP: 2.0, emitColor: 0xa08cff, emitK: 1.1, rough: 0.1, metal: 0.2,
+    temp: 'UNREADABLE', age: '0.0 AEONS',
+    lore: 'Lattice-grown in the relic’s first exhalation. It is perfectly hollow, and something inside it is still keeping time.',
+    comp: [['QUARTZINE', 0.44], ['VOID', 0.33], ['CHRONOLITH', 0.15], ['UNNAMED', 0.08]], freqs: [4.4, 8.8, 13.2] },
+  { key: 'rock', cls: 'TELLURIC', name: 'MNEMOS', epithet: 'The Scarred Witness', r: 0.62,
+    atmo: [0.7, 0.76, 0.92], atmoI: 0.45, atmoP: 3.4, emitColor: 0xffffff, emitK: 0, rough: 0.95, metal: 0.05,
+    temp: '212 K', age: '4.1 AEONS',
+    lore: 'Every crater is a date. Mnemos was struck in the pattern of a calendar, and its small moon is the single day they chose to remember.',
+    comp: [['REGOLITH', 0.48], ['NICKEL-IRON', 0.27], ['GLASS', 0.16], ['ARCHIVE', 0.09]], freqs: [1.9, 2.1, 6.3] },
+  { key: 'ocean', cls: 'PELAGIC', name: 'YSOLDE’S LANTERN', epithet: 'The Last Light', r: 0.74,
+    atmo: [0.32, 0.95, 0.9], atmoI: 1.35, atmoP: 2.4, emitColor: 0x6dffd8, emitK: 2.8, rough: 0.28, metal: 0.1,
+    temp: '286 K', age: '3.3 AEONS',
+    lore: 'Dark oceans, and within them a patient light. They say the lantern-folk left the tide on, in case anyone ever came back.',
+    comp: [['BRINE', 0.63], ['BASALT', 0.17], ['LUMEN', 0.14], ['UNNAMED', 0.06]], freqs: [0.9, 2.7, 3.6] },
+];
+const AWAKEN_LINES = [
+  'The relic remembers.',
+  'A resonance answers from the dark.',
+  'Something vast turns over in its sleep.',
+  'The rings recall their first shape.',
+  'For a moment, it was not alone.',
+];
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+
+/* =========================================================================
+   Loader
+   ========================================================================= */
+function setProgress(p, msg) {
+  $('ld-fill').style.transform = `scaleX(${clamp(p)})`;
+  $('ld-pct').textContent = String(Math.round(clamp(p) * 100)).padStart(3, '0');
+  if (msg) $('ld-msg').textContent = msg;
+}
+
+/* =========================================================================
+   Renderer, scene, camera
+   ========================================================================= */
+const canvas = $('gl');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', alpha: false, stencil: false });
+} catch (e) {
+  window.__relicFail('This device cannot render WebGL, so the relic stays hidden.');
+}
+
+if (renderer) boot();
+
+async function boot() {
+setProgress(0.04, 'Waking the renderer');
+renderer.setPixelRatio(PR);
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x040816, 0.0085);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 2400);
+const HOME = new THREE.Vector3(14, 7.5, 21.5);
+// Portrait screens need more distance to frame the whole system.
+const homeDistance = () => HOME.length() * (innerWidth < innerHeight ? clamp(innerHeight / innerWidth, 1, 2.2) * 0.78 : 1);
+camera.position.copy(HOME).multiplyScalar(1.9);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.055;
+controls.enablePan = false;
+controls.minDistance = 3.2;
+controls.maxDistance = 70;
+controls.rotateSpeed = 0.6;
+controls.zoomSpeed = 0.8;
+controls.minPolarAngle = 0.12;
+controls.maxPolarAngle = Math.PI * 0.88;
+controls.target.set(0, 0, 0);
+
+/* ---------- Post-processing ---------- */
+const rt = new THREE.WebGLRenderTarget(innerWidth * PR, innerHeight * PR, { type: THREE.HalfFloatType, samples: LOW ? 0 : 4 });
+const composer = new EffectComposer(renderer, rt);
+composer.setPixelRatio(PR);
+composer.setSize(innerWidth, innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.85, 0.72, 0.6);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const finalPass = new ShaderPass({
+  uniforms: {
+    tDiffuse: { value: null }, uTime: { value: 0 }, uAberration: { value: 0.006 }, uGrain: { value: 0.032 },
+    uFlash: { value: 0 }, uFreeze: { value: 0 }, uRes: { value: new THREE.Vector2(innerWidth * PR, innerHeight * PR) },
+  },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse; uniform float uTime, uAberration, uGrain, uFlash, uFreeze; uniform vec2 uRes;
+    varying vec2 vUv;
+    void main(){
+      vec2 c = vUv - 0.5; float d = length(c);
+      float ab = uAberration * d * d * 4.0;
+      vec3 col;
+      col.r = texture2D(tDiffuse, vUv - c * ab).r;
+      col.g = texture2D(tDiffuse, vUv).g;
+      col.b = texture2D(tDiffuse, vUv + c * ab).b;
+      float l = dot(col, vec3(0.299, 0.587, 0.114));
+      col = mix(col, vec3(l) * vec3(0.78, 0.95, 1.12), uFreeze * 0.7);
+      col += uFlash * vec3(1.0, 0.9, 0.72) * (1.0 - d * 0.8);
+      col *= mix(1.0, smoothstep(0.95, 0.25, d), 0.85);
+      float n = fract(sin(dot(vUv * uRes + fract(uTime) * 71.0, vec2(12.9898, 78.233))) * 43758.5453);
+      col += (n - 0.5) * uGrain;
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+});
+composer.addPass(finalPass);
+
+/* ---------- Environment map (procedural, matches palette) ---------- */
+{
+  const pm = new THREE.PMREMGenerator(renderer);
+  const s = new THREE.Scene();
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `varying vec3 vP; void main(){ vec3 d = normalize(vP); vec3 c = mix(vec3(0.008,0.012,0.035), vec3(0.05,0.08,0.18), smoothstep(-0.5,1.0,d.y)); gl_FragColor = vec4(c,1.0); }`,
+  }));
+  s.add(sky);
+  const blob = (c, p, r) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 8), new THREE.MeshBasicMaterial({ color: c })); m.position.set(...p); s.add(m); };
+  blob(new THREE.Color(14, 10, 5.5), [18, 30, 14], 6);
+  blob(new THREE.Color(1.4, 4.8, 7), [-32, 6, -10], 7);
+  blob(new THREE.Color(3, 2, 6.5), [10, -22, -26], 8);
+  blob(new THREE.Color(3.5, 2.4, 1.2), [-8, -30, 20], 6);
+  const envRT = pm.fromScene(s, 0.035);
+  scene.environment = envRT.texture;
+  scene.environmentIntensity = 0.9;
+  disposeTree(sky); s.children.slice().forEach(disposeTree); pm.dispose();
+}
+
+/* ---------- Sky & stars (persistent) ---------- */
+await nextFrame();
+setProgress(0.1, 'Charting the void');
+const skySeed = { value: new THREE.Vector3() };
+const skyMesh = new THREE.Mesh(new THREE.SphereGeometry(900, 48, 24), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { uSeed: skySeed },
+  vertexShader: `varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position = p.xyww; }`,
+  fragmentShader: GLSL_NOISE + /* glsl */`
+    uniform vec3 uSeed; varying vec3 vDir;
+    float fbm(vec3 p){ float s=0.0, a=0.5; for(int i=0;i<5;i++){ s += a*snoise(p); p *= 2.03; a *= 0.5; } return s; }
+    void main(){
+      vec3 d = normalize(vDir);
+      vec3 base = mix(vec3(0.004,0.007,0.02), vec3(0.012,0.02,0.05), smoothstep(-0.7,0.9,d.y));
+      vec3 bandN = normalize(vec3(0.35,1.0,0.22));
+      float band = exp(-pow(dot(d,bandN)*3.0,2.0));
+      float n1 = fbm(d*2.2 + uSeed);
+      float n2 = fbm(d*4.6 - uSeed + n1);
+      float lanes = smoothstep(0.05,0.55, fbm(d*7.5 + uSeed*1.7));
+      vec3 neb = vec3(0.07,0.13,0.34) * smoothstep(-0.15,0.7,n1) * 0.55
+               + vec3(0.26,0.16,0.5) * smoothstep(0.15,0.9,n2) * 0.32 * (0.35+band)
+               + vec3(0.95,0.62,0.28) * pow(max(n2,0.0),3.0) * band * 0.5;
+      vec3 col = base + neb * (1.0 - lanes*0.65*band) + band*vec3(0.035,0.05,0.09)*(1.0-lanes*0.5);
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+}));
+skyMesh.renderOrder = -10;
+skyMesh.frustumCulled = false;
+scene.add(skyMesh);
+
+const starU = { uTime: { value: 0 }, uPR: { value: PR } };
+{
+  const R = mulberry32(90210);
+  const n = LOW ? 4200 : 7500;
+  const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), size = new Float32Array(n), ph = new Float32Array(n);
+  const warm = new THREE.Color('#ffd9a0'), cool = new THREE.Color('#a9d8ff'), white = new THREE.Color('#f4f6ff'), c = new THREE.Color();
+  for (let i = 0; i < n; i++) {
+    const u = R() * 2 - 1, th = R() * TAU, rr = Math.sqrt(1 - u * u), rad = 520 + R() * 300;
+    let x = rr * Math.cos(th), y = u, z = rr * Math.sin(th);
+    // concentrate some stars along the galactic band
+    if (R() < 0.45) { const bn = new THREE.Vector3(0.35, 1, 0.22).normalize(); const dd = x * bn.x + y * bn.y + z * bn.z; x -= bn.x * dd * 0.85; y -= bn.y * dd * 0.85; z -= bn.z * dd * 0.85; const l = Math.hypot(x, y, z); x /= l; y /= l; z /= l; }
+    pos.set([x * rad, y * rad, z * rad], i * 3);
+    const t = R(); c.copy(white).lerp(t < 0.5 ? cool : warm, Math.abs(t - 0.5) * 1.6);
+    const b = 0.5 + Math.pow(R(), 4) * 2.4;
+    col.set([c.r * b, c.g * b, c.b * b], i * 3);
+    size[i] = 1.2 + Math.pow(R(), 6) * 5.5; ph[i] = R();
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+  g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+  g.setAttribute('aPhase', new THREE.BufferAttribute(ph, 1));
+  const stars = new THREE.Points(g, new THREE.ShaderMaterial({
+    uniforms: starU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+    vertexShader: /* glsl */`
+      attribute vec3 aColor; attribute float aSize; attribute float aPhase;
+      uniform float uTime, uPR; varying vec3 vColor; varying float vTw;
+      void main(){
+        vTw = 0.62 + 0.38 * sin(uTime * (0.5 + aPhase * 2.2) + aPhase * 40.0);
+        vColor = aColor;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = aSize * uPR * (0.85 + 0.3 * vTw);
+      }`,
+    fragmentShader: /* glsl */`
+      varying vec3 vColor; varying float vTw;
+      void main(){
+        float d = length(gl_PointCoord - 0.5);
+        float core = smoothstep(0.2, 0.0, d); float glow = smoothstep(0.5, 0.0, d) * 0.35;
+        gl_FragColor = vec4(vColor * (core + glow) * vTw, 1.0);
+      }`,
+  }));
+  stars.frustumCulled = false; stars.renderOrder = -9;
+  scene.add(stars);
+}
+
+/* ---------- Lights (persistent) ---------- */
+const keyLight = new THREE.DirectionalLight(0xffe0b5, 2.4);
+keyLight.position.set(7, 16, 5);
+keyLight.target.position.set(0, -2, 0);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(LOW ? 1024 : 2048, LOW ? 1024 : 2048);
+Object.assign(keyLight.shadow.camera, { left: -17, right: 17, top: 17, bottom: -17, near: 1, far: 52 });
+keyLight.shadow.bias = -0.0004;
+keyLight.shadow.normalBias = 0.03;
+keyLight.shadow.radius = 5;
+scene.add(keyLight, keyLight.target);
+const rimLight = new THREE.DirectionalLight(0x6f9fff, 0.95);
+rimLight.position.set(-12, 4, -12);
+scene.add(rimLight);
+scene.add(new THREE.AmbientLight(0x1c2748, 0.5));
+scene.add(new THREE.HemisphereLight(0x39507f, 0x0b0a12, 0.45));
+const coreLight = new THREE.PointLight(0xffc27a, 18, 0, 1.8);
+scene.add(coreLight);
+const wispGeo = new THREE.SphereGeometry(0.045, 12, 8);
+const wisps = [
+  { c: 0x7fe6ff, hdr: [1.2, 4.2, 5.5], I: 13, r: 3.3, w: 0.21, inc: 0.5, ph: 0 },
+  { c: 0x9a7bff, hdr: [2.6, 1.8, 6.0], I: 10, r: 3.9, w: -0.16, inc: -0.9, ph: 2.1 },
+  { c: 0xffb45c, hdr: [6.0, 3.6, 1.4], I: 11, r: 2.9, w: 0.27, inc: 1.4, ph: 4.2 },
+].map((d) => {
+  const L = new THREE.PointLight(d.c, d.I, 0, 1.8);
+  const m = new THREE.Mesh(wispGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(...d.hdr) }));
+  L.add(m); scene.add(L);
+  return { ...d, L, angle: d.ph };
+});
+
+/* ---------- Volumetric-style light shaft (persistent) ---------- */
+const BEAM_VERT = /* glsl */`
+  varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+  void main(){
+    vUv = uv; vP = position;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz);
+    gl_Position = projectionMatrix * mv;
+  }`;
+const BEAM_FRAG = GLSL_NOISE + /* glsl */`
+  uniform float uTime, uIntensity, uBias; uniform vec3 uColor;
+  varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+  void main(){
+    float fres = pow(abs(dot(normalize(vN), normalize(vV))), 1.6);
+    float n = snoise(vec3(vP.x * 0.55, vP.y * 0.12 - uTime * 0.22, vP.z * 0.55)) * 0.5 + 0.5;
+    float ends = smoothstep(0.0, 0.35, vUv.y) * smoothstep(1.0, 0.8, vUv.y);
+    float a = fres * (0.5 + 0.5 * n) * ends * mix(1.0, vUv.y, uBias) * uIntensity;
+    gl_FragColor = vec4(uColor * a, 1.0);
+  }`;
+const beamU = { uTime: { value: 0 } };
+function makeBeam(rTop, rBot, h, color, intensity, bias) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, h, 48, 1, true), new THREE.ShaderMaterial({
+    uniforms: { uTime: beamU.uTime, uIntensity: { value: intensity }, uBias: { value: bias }, uColor: { value: new THREE.Color(...color) } },
+    vertexShader: BEAM_VERT, fragmentShader: BEAM_FRAG,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+  }));
+  m.renderOrder = 5;
+  return m;
+}
+const shaft = makeBeam(0.5, 6.5, 44, [1.0, 0.78, 0.45], 0.07, 0.6);
+{
+  const L = keyLight.position.clone().normalize();
+  shaft.position.copy(L).multiplyScalar(17);
+  shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), L);
+}
+scene.add(shaft);
+
+/* =========================================================================
+   Shared shader snippets
+   ========================================================================= */
+const ATMO_VERT = /* glsl */`
+  varying vec3 vN; varying vec3 vV;
+  void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`;
+const ATMO_FRAG = /* glsl */`
+  uniform vec3 uColor; uniform float uIntensity, uPower; varying vec3 vN; varying vec3 vV;
+  void main(){ float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), uPower); gl_FragColor = vec4(uColor * f * uIntensity, 1.0); }`;
+
+/* =========================================================================
+   World generation (everything here is regenerated/disposed on reset)
+   ========================================================================= */
+function makeGlyphCanvasTexture(rand) {
+  return canvasTexture(2048, 128, (x, w, h) => {
+    x.strokeStyle = '#fff'; x.fillStyle = '#fff'; x.lineCap = 'round'; x.lineJoin = 'round';
+    let px = 12;
+    while (px < w - 60) {
+      const gw = 30 + rand() * 34;
+      if (rand() < 0.1) { px += gw * 0.7; continue; }
+      x.lineWidth = 3 + rand() * 1.5;
+      const cols = 3, rows = 4, gx = gw / (cols - 1), gy = 76 / (rows - 1), oy = 26;
+      const pt = () => [px + Math.floor(rand() * cols) * gx, oy + Math.floor(rand() * rows) * gy];
+      const strokes = 2 + Math.floor(rand() * 3);
+      for (let s = 0; s < strokes; s++) {
+        const k = rand();
+        x.beginPath();
+        if (k < 0.55) { const a = pt(), b = pt(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); const c = pt(); if (rand() < 0.5) x.lineTo(c[0], c[1]); x.stroke(); }
+        else if (k < 0.85) { const a = pt(); x.arc(a[0], a[1], gy * (0.5 + rand() * 0.5), rand() * TAU, rand() * TAU + 1.5); x.stroke(); }
+        else { const a = pt(); x.arc(a[0], a[1], 3.2, 0, TAU); x.fill(); }
+      }
+      px += gw + 14;
+    }
+    x.globalAlpha = 0.5; x.fillRect(0, 8, w, 2); x.fillRect(0, h - 10, w, 2);
+  });
+}
+function polarRingGeometry(inner, outer, segs) {
+  const g = new THREE.RingGeometry(inner, outer, segs, 1);
+  const uv = g.attributes.uv;
+  for (let j = 0; j <= 1; j++) for (let i = 0; i <= segs; i++) uv.setXY(j * (segs + 1) + i, i / segs, j);
+  return g;
+}
+
+const SAMPLERS = {
+  molten(W, o) {
+    const N = W.N, basalt = new THREE.Color('#1a1210'), ash = new THREE.Color('#40332c'), ember = new THREE.Color('#ff7a2a');
+    return (v, c, out) => {
+      const base = fbm(N, v.x * 1.8 + o.x, v.y * 1.8 + o.y, v.z * 1.8 + o.z, 5);
+      const rid = 1 - Math.abs(N(v.x * 3.2 + o.y, v.y * 3.2 + o.z, v.z * 3.2 + o.x));
+      const rid2 = 1 - Math.abs(N(v.x * 7 + o.z, v.y * 7 + o.x, v.z * 7));
+      const e = Math.min(1, smooth(0.86, 0.97, rid) + 0.6 * smooth(0.9, 0.985, rid2));
+      out.h = base * 0.07 - e * 0.025; out.e = e;
+      c.copy(basalt).lerp(ash, clamp(base * 0.9 + 0.45)).lerp(ember, e * 0.85);
+    };
+  },
+  ice(W, o) {
+    const N = W.N, a = new THREE.Color('#8fa9cc'), b = new THREE.Color('#eef6ff'), cy = new THREE.Color('#5fd0ff');
+    return (v, c, out) => {
+      const base = fbm(N, v.x * 2 + o.x, v.y * 2 + o.y, v.z * 2 + o.z, 5);
+      const crev = smooth(0.9, 0.985, 1 - Math.abs(N(v.x * 4.2 + o.z, v.y * 4.2, v.z * 4.2 + o.y)));
+      out.h = base * 0.035 - crev * 0.012; out.e = crev * 0.55;
+      c.copy(a).lerp(b, clamp(base * 1.3 + 0.5 + Math.abs(v.y) * 0.35)).lerp(cy, crev * 0.6);
+    };
+  },
+  gas(W, o) {
+    const N = W.N, cream = new THREE.Color('#ead8b2'), amber = new THREE.Color('#c98a4a'), rust = new THREE.Color('#86462b'),
+      slate = new THREE.Color('#58678a'), eyeC = new THREE.Color('#b8553a');
+    const eye = new THREE.Vector3(W.rand() - 0.5, (W.rand() - 0.5) * 0.5, W.rand() - 0.5).normalize();
+    return (v, c, out) => {
+      const warp = fbm(N, v.x * 1.6 + o.x, v.y * 1.6 + o.y, v.z * 1.6 + o.z, 4) * 0.45;
+      const lat = v.y + warp * 0.35;
+      const b = Math.sin(lat * 14 + N(v.x * 0.8, v.y * 6 + o.y, v.z * 0.8) * 1.5) * 0.5 + 0.5;
+      const b2 = Math.sin(lat * 37 + warp * 4) * 0.5 + 0.5;
+      c.copy(amber).lerp(cream, b).lerp(rust, b2 * 0.35).lerp(slate, smooth(0.55, 1.0, Math.abs(lat)) * 0.65);
+      const d = v.distanceTo(eye);
+      if (d < 0.34) { const s = smooth(0.34, 0.0, d); c.lerp(eyeC, s * (0.6 + 0.4 * Math.sin(d * 70 + warp * 10))); }
+      out.h = 0; out.e = 0;
+    };
+  },
+  crystal(W, o) {
+    const N = W.N, vi = new THREE.Color('#3a2f7a'), cy = new THREE.Color('#7fe6ff'), wh = new THREE.Color('#f2f0ff');
+    return (v, c, out) => {
+      const n = N(v.x * 1.3 + o.x, v.y * 1.3 + o.y, v.z * 1.3 + o.z);
+      const sp = Math.pow(Math.max(0, N(v.x * 2.6 + o.z, v.y * 2.6 + o.x, v.z * 2.6)), 2);
+      out.h = 0.15 * n + sp * 0.9; out.e = smooth(0.08, 0.5, sp) * 0.9;
+      c.copy(vi).lerp(cy, clamp(n * 0.6 + 0.5)).lerp(wh, clamp(sp * 1.5));
+    };
+  },
+  rock(W, o, count = 38) {
+    const N = W.N, R = W.rand, lo = new THREE.Color('#3f3b38'), hi = new THREE.Color('#b0a79c');
+    const cr = [];
+    for (let i = 0; i < count; i++) {
+      const u = R() * 2 - 1, th = R() * TAU, rr = Math.sqrt(1 - u * u);
+      cr.push({ x: rr * Math.cos(th), y: u, z: rr * Math.sin(th), r: 0.05 + Math.pow(R(), 3) * 0.4, d: 0.03 + R() * 0.05 });
+    }
+    return (v, c, out) => {
+      let h = fbm(N, v.x * 2.5 + o.x, v.y * 2.5 + o.y, v.z * 2.5 + o.z, 5) * 0.045;
+      for (const k of cr) {
+        const dot = clamp(v.x * k.x + v.y * k.y + v.z * k.z, -1, 1);
+        const x = Math.acos(dot) / k.r;
+        if (x < 1.6) {
+          if (x < 1) h -= k.d * (1 - x * x);
+          h += k.d * 0.45 * Math.exp(-((x - 1) * (x - 1)) / 0.03);
+        }
+      }
+      out.h = h; out.e = 0;
+      c.copy(lo).lerp(hi, clamp(h * 9 + 0.55));
+    };
+  },
+  ocean(W, o) {
+    const N = W.N, deep = new THREE.Color('#06202e'), shal = new THREE.Color('#12465e'), land = new THREE.Color('#29352a'), hi = new THREE.Color('#5d6450');
+    return (v, c, out) => {
+      const cont = fbm(N, v.x * 1.4 + o.x, v.y * 1.4 + o.y, v.z * 1.4 + o.z, 5);
+      const l = smooth(0.18, 0.24, cont);
+      out.h = l * 0.025 + Math.max(0, cont - 0.24) * 0.1;
+      const g = smooth(0.5, 0.78, N(v.x * 9 + o.z, v.y * 9 + o.x, v.z * 9 + o.y)) * (1 - l) * smooth(-0.2, 0.25, N(v.x * 2.2 - o.x, v.y * 2.2, v.z * 2.2));
+      out.e = g;
+      c.copy(deep).lerp(shal, clamp(cont * 2 + 0.6)).lerp(land, l).lerp(hi, l * clamp((cont - 0.24) * 6));
+    };
+  },
+};
+
+function makePlanetGeometry(W, key, detail, faceted, scale = 1, extra) {
+  const o = new THREE.Vector3(W.rand() * 100, W.rand() * 100, W.rand() * 100);
+  let geo = new THREE.IcosahedronGeometry(1, detail);
+  if (!faceted) { geo.deleteAttribute('normal'); geo.deleteAttribute('uv'); geo = mergeVertices(geo); }
+  const sampler = SAMPLERS[key](W, o, extra);
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3), emit = new Float32Array(n);
+  const v = new THREE.Vector3(), c = new THREE.Color(), out = { h: 0, e: 0 };
+  for (let i = 0; i < n; i++) {
+    v.fromBufferAttribute(pos, i).normalize();
+    sampler(v, c, out);
+    const r = scale * (1 + out.h);
+    pos.setXYZ(i, v.x * r, v.y * r, v.z * r);
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    emit[i] = out.e;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('aEmit', new THREE.BufferAttribute(emit, 1));
+  geo.computeVertexNormals();
+  geo.computeBoundingSphere();
+  return geo;
+}
+
+async function buildWorld(seed, progress = () => {}) {
+  const rand = mulberry32(seed);
+  const N = createNoise3D(rand);
+  const root = new THREE.Group();
+  root.name = 'world';
+  const W = { root, seed, rand, N, intro: 0, bodies: [], rings: [], pickables: [] };
+  skySeed.value.set(rand() * 40, rand() * 40, rand() * 40);
+
+  /* ---------------- Relic core ---------------- */
+  progress(0.02, 'Growing the crystal lattice');
+  const relic = new THREE.Group(); root.add(relic); W.relic = relic;
+  {
+    const g = new THREE.IcosahedronGeometry(1.05, 3);
+    const pos = g.attributes.position, v = new THREE.Vector3(), o = rand() * 50;
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).normalize();
+      const r = 1.05 * (1 + 0.22 * Math.abs(N(v.x * 1.3 + o, v.y * 1.3, v.z * 1.3)) + 0.06 * N(v.x * 4, v.y * 4 + o, v.z * 4));
+      pos.setXYZ(i, v.x * r, v.y * r * 1.2, v.z * r);
+    }
+    g.computeVertexNormals();
+    const shellMat = new THREE.MeshPhysicalMaterial({
+      color: 0xbfe6ff, metalness: 0, roughness: 0.06, transmission: 1, thickness: 1.4, ior: 1.62,
+      iridescence: 1, iridescenceIOR: 1.35, iridescenceThicknessRange: [180, 820],
+      clearcoat: 1, clearcoatRoughness: 0.04, attenuationColor: new THREE.Color(0x4a86d8), attenuationDistance: 2.6,
+      specularIntensity: 1, envMapIntensity: 1.6, dispersion: 0.25,
+    });
+    W.shell = new THREE.Mesh(g, shellMat);
+    W.shell.castShadow = true;
+    relic.add(W.shell);
+
+    W.heartU = { uTime: { value: 0 }, uPulse: { value: 0 }, uEnergy: { value: 0 } };
+    W.heart = new THREE.Mesh(new THREE.SphereGeometry(0.42, 64, 32), new THREE.ShaderMaterial({
+      uniforms: W.heartU,
+      vertexShader: /* glsl */`
+        varying vec3 vN; varying vec3 vV; varying vec3 vP;
+        void main(){ vP = position; vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: GLSL_NOISE + /* glsl */`
+        uniform float uTime, uPulse, uEnergy; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+        void main(){
+          float n = snoise(vP * 3.2 + vec3(0.0, uTime * 0.45, 0.0));
+          float n2 = snoise(vP * 7.5 - uTime * 0.7);
+          float fres = pow(1.0 - max(dot(normalize(vN), normalize(vV)), 0.0), 2.0);
+          vec3 gold = vec3(1.0, 0.66, 0.28), white = vec3(1.0, 0.95, 0.85), cyan = vec3(0.4, 0.88, 1.0);
+          vec3 col = mix(gold, white, smoothstep(0.1, 0.9, n * 0.5 + 0.5));
+          col = mix(col, cyan, fres * 0.55 + smoothstep(0.55, 0.9, n2) * 0.3 + uEnergy * 0.15);
+          float k = (1.7 + uPulse * 1.6 + uEnergy * 2.6) * (0.8 + 0.3 * n2);
+          gl_FragColor = vec4(col * k, 1.0);
+        }`,
+    }));
+    relic.add(W.heart);
+
+    // Sacred lattice cage (opaque so it reads through the transmissive shell)
+    W.lattice = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(0.72, 1)),
+      new THREE.LineBasicMaterial({ color: new THREE.Color(2.2, 1.5, 0.6) }));
+    relic.add(W.lattice);
+
+    // Crystal shards on a Fibonacci sphere
+    const SH = 46;
+    const shardMat = new THREE.MeshPhysicalMaterial({
+      color: 0x9fd8ff, metalness: 0.15, roughness: 0.12, iridescence: 1, iridescenceIOR: 1.4,
+      clearcoat: 1, clearcoatRoughness: 0.08, emissive: 0x0b2c48, flatShading: true, envMapIntensity: 1.5,
+    });
+    W.shards = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1, 0), shardMat, SH);
+    W.shards.castShadow = true;
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    for (let i = 0; i < SH; i++) {
+      const y = 1 - ((i + 0.5) / SH) * 2, rr = Math.sqrt(1 - y * y), th = i * 2.39996 + rand() * 0.4;
+      const dir = new THREE.Vector3(Math.cos(th) * rr, y, Math.sin(th) * rr).normalize();
+      const len = 0.16 + rand() * 0.34 * (0.6 + 0.4 * Math.abs(N(dir.x * 2, dir.y * 2, dir.z * 2 + 9)));
+      const w = 0.04 + rand() * 0.05;
+      p.copy(dir).multiplyScalar(1.72 + len + rand() * 0.18);
+      q.setFromUnitVectors(up, dir); s.set(w, len, w);
+      m.compose(p, q, s); W.shards.setMatrixAt(i, m);
+    }
+    relic.add(W.shards);
+
+    // Halo glows
+    W.halo = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: radialTexture([[0, 'rgba(255,220,160,1)'], [0.18, 'rgba(255,190,110,0.55)'], [0.45, 'rgba(120,170,255,0.12)'], [1, 'rgba(0,0,0,0)']]),
+      color: 0xffffff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+    }));
+    W.halo.scale.setScalar(7);
+    W.halo.renderOrder = 4;
+    relic.add(W.halo);
+    W.halo2 = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: radialTexture([[0, 'rgba(120,220,255,0.35)'], [0.4, 'rgba(60,110,220,0.08)'], [1, 'rgba(0,0,0,0)']]),
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+    }));
+    W.halo2.scale.setScalar(22);
+    W.halo2.renderOrder = 3;
+    relic.add(W.halo2);
+
+    // Pick proxy
+    const proxy = new THREE.Mesh(new THREE.SphereGeometry(2.1, 16, 12), new THREE.MeshBasicMaterial());
+    proxy.visible = false; proxy.userData.pick = { type: 'relic' };
+    relic.add(proxy); W.pickables.push(proxy);
+  }
+  await nextFrame();
+
+  /* ---------------- Rings ---------------- */
+  progress(0.18, 'Forging the concentric rings');
+  {
+    const glyphBase = makeGlyphCanvasTexture(rand);
+    glyphBase.wrapS = THREE.RepeatWrapping;
+    glyphBase.anisotropy = 8;
+    W.glyphBase = glyphBase;
+    const gold = new THREE.MeshPhysicalMaterial({ color: 0xc9973f, metalness: 1, roughness: 0.26, clearcoat: 0.7, clearcoatRoughness: 0.2, iridescence: 0.3, iridescenceIOR: 1.8 });
+    const bronze = new THREE.MeshStandardMaterial({ color: 0x6b5130, metalness: 0.92, roughness: 0.42 });
+    const glowLine = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 1.6, 2.1) });
+    const beadMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 3.4, 1.4) });
+    const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+    const beadGeo = new THREE.SphereGeometry(0.055, 14, 10);
+    const RC = 5;
+    for (let i = 0; i < RC; i++) {
+      const R = 2.6 + i * 0.64 + rand() * 0.1;
+      const pivot = new THREE.Group(); const spinner = new THREE.Group(); pivot.add(spinner); relic.add(pivot);
+      const band = new THREE.Mesh(new THREE.TorusGeometry(R, 0.028 + rand() * 0.03, 10, 240), gold);
+      band.castShadow = true; spinner.add(band);
+      const line = new THREE.Mesh(new THREE.TorusGeometry(R + 0.075, 0.006, 5, 240), glowLine);
+      spinner.add(line);
+      // Inscription annulus
+      const tex = glyphBase.clone(); tex.repeat.set(Math.round(R * 2.2), 1); tex.needsUpdate = true;
+      const glyphMat = new THREE.MeshBasicMaterial({
+        map: tex, color: new THREE.Color(0.55, 1.35, 1.7), transparent: true, opacity: 0.85,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+      });
+      const glyph = new THREE.Mesh(polarRingGeometry(R + 0.1, R + 0.24, 256), glyphMat);
+      glyph.renderOrder = 2; spinner.add(glyph);
+      // Procedural "teeth" along the inner edge
+      const count = Math.floor(R * 46);
+      const teeth = new THREE.InstancedMesh(boxGeo, bronze, count);
+      const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), e = new THREE.Euler();
+      let used = 0; const arc = TAU * R / count; const freq = 3 + Math.floor(rand() * 6);
+      for (let k = 0; k < count; k++) {
+        const a = (k / count) * TAU;
+        const val = N(Math.cos(a) * 2.5, Math.sin(a) * 2.5, i * 7.3) * 0.7 + Math.sin(a * freq) * 0.45;
+        if (val < -0.25) continue;
+        const len = 0.05 + 0.2 * clamp(val + 0.25);
+        p.set(Math.cos(a) * (R - 0.05 - len * 0.5), Math.sin(a) * (R - 0.05 - len * 0.5), 0);
+        q.setFromEuler(e.set(0, 0, a)); s.set(len, arc * 0.55, 0.05 + (k % 3 === 0 ? 0.04 : 0));
+        m.compose(p, q, s); teeth.setMatrixAt(used++, m);
+      }
+      teeth.count = used; teeth.castShadow = true; spinner.add(teeth);
+      // Travelling beads of light
+      const beads = [];
+      const nb = 1 + Math.floor(rand() * 3);
+      for (let b = 0; b < nb; b++) { const bd = new THREE.Mesh(beadGeo, beadMat); spinner.add(bd); beads.push({ m: bd, ph: rand() * TAU, sp: (0.25 + rand() * 0.5) * (rand() < 0.5 ? -1 : 1) }); }
+      W.rings.push({
+        pivot, spinner, R, glyphMat, tex, beads, spin: rand() * TAU,
+        speed: (0.07 + rand() * 0.12) * (i % 2 ? -1 : 1) * (1.4 - i * 0.12),
+        base: new THREE.Vector3(rand() * Math.PI, rand() * Math.PI, rand() * Math.PI),
+        prec: new THREE.Vector3((rand() - 0.5) * 0.08, (rand() - 0.5) * 0.1, 0),
+        expand: 0.35 + i * 0.12, texSpeed: (rand() - 0.5) * 0.02,
+      });
+    }
+    // Debris belt
+    const DB = LOW ? 160 : 260;
+    W.belt = new THREE.InstancedMesh(new THREE.TetrahedronGeometry(1, 0), bronze, DB);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), e = new THREE.Euler();
+    for (let k = 0; k < DB; k++) {
+      const a = rand() * TAU, r = 6.0 + rand() * 0.8 + (rand() < 0.15 ? rand() * 0.8 : 0);
+      p.set(Math.cos(a) * r, (rand() - 0.5) * 0.25, Math.sin(a) * r);
+      q.setFromEuler(e.set(rand() * TAU, rand() * TAU, rand() * TAU)); s.setScalar(0.02 + Math.pow(rand(), 2) * 0.08);
+      m.compose(p, q, s); W.belt.setMatrixAt(k, m);
+    }
+    W.beltPivot = new THREE.Group(); W.beltPivot.rotation.set(0.12, 0, -0.08); W.beltPivot.add(W.belt); relic.add(W.beltPivot);
+  }
+  await nextFrame();
+
+  /* ---------------- Energy filaments ---------------- */
+  progress(0.32, 'Weaving energy filaments');
+  {
+    W.filU = { uTime: { value: 0 }, uEnergy: { value: 0 }, uIntro: { value: 0 } };
+    W.filaments = new THREE.Group(); relic.add(W.filaments);
+    const FN = 18;
+    const randUnit = () => { const u = rand() * 2 - 1, th = rand() * TAU, r = Math.sqrt(1 - u * u); return new THREE.Vector3(r * Math.cos(th), u, r * Math.sin(th)); };
+    for (let f = 0; f < FN; f++) {
+      const a = randUnit();
+      const axis = new THREE.Vector3().crossVectors(a, randUnit()).normalize();
+      const b = a.clone().applyAxisAngle(axis, 0.8 + rand() * 1.1);
+      const A = 0.9 + rand() * 1.9, pts = [];
+      for (let k = 0; k <= 28; k++) {
+        const s = k / 28;
+        const dir = a.clone().lerp(b, s).normalize();
+        const r = 1.15 + A * Math.sin(Math.PI * s) + 0.18 * N(dir.x * 3 + f, dir.y * 3, dir.z * 3) * Math.sin(Math.PI * s);
+        pts.push(dir.multiplyScalar(r));
+      }
+      const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 110, 0.01 + rand() * 0.012, 5, false);
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { ...W.filU, uOffset: { value: rand() }, uSpeed: { value: 0.25 + rand() * 0.5 }, uColA: { value: new THREE.Color(1.0, 0.72, 0.35) }, uColB: { value: new THREE.Color(0.4, 0.9, 1.0) } },
+        vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+        fragmentShader: /* glsl */`
+          uniform float uTime, uEnergy, uIntro, uOffset, uSpeed; uniform vec3 uColA, uColB; varying vec2 vUv;
+          void main(){
+            float s = vUv.x;
+            float grow = smoothstep(s, s + 0.15, uIntro * 1.15);
+            float pulse = pow(fract(s * 2.0 - uTime * uSpeed + uOffset), 7.0);
+            float ends = smoothstep(0.0, 0.08, s) * smoothstep(1.0, 0.92, s);
+            vec3 col = mix(uColA, uColB, s);
+            float a = (0.22 + pulse * 2.2 * (1.0 + uEnergy)) * ends * grow * (1.0 + uEnergy * 0.8);
+            gl_FragColor = vec4(col * a, 1.0);
+          }`,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+      });
+      const mesh = new THREE.Mesh(geo, mat); mesh.renderOrder = 3;
+      W.filaments.add(mesh);
+    }
+  }
+  await nextFrame();
+
+  /* ---------------- Planetary bodies ---------------- */
+  const order = BODY_DEFS.map((d, i) => i);
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  const atmoGeo = new THREE.SphereGeometry(1, 48, 32);
+  for (let idx = 0; idx < order.length; idx++) {
+    const def = BODY_DEFS[order[idx]];
+    progress(0.42 + idx * 0.07, `Accreting ${def.name.charAt(0) + def.name.slice(1).toLowerCase()}`);
+    const r = def.r;
+    const faceted = def.key === 'crystal';
+    const detail = faceted ? 3 : def.key === 'gas' ? (LOW ? 18 : 26) : (LOW ? 14 : 22);
+    const geo = makePlanetGeometry(W, def.key, detail, faceted, r);
+    const mat = faceted
+      ? new THREE.MeshPhysicalMaterial({ vertexColors: true, flatShading: true, metalness: def.metal, roughness: def.rough, iridescence: 1, iridescenceIOR: 1.5, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.5 })
+      : new THREE.MeshStandardMaterial({ vertexColors: true, metalness: def.metal, roughness: def.rough });
+    patchEmissive(mat, def.emitColor, def.emitK);
+
+    const a = 8.2 + idx * 1.85 + rand() * 0.5 + (def.key === 'gas' ? 0.5 : 0);
+    const e = rand() * 0.11;
+    const pivot = new THREE.Group();
+    pivot.rotation.set((rand() - 0.5) * 0.45, rand() * TAU, (rand() - 0.5) * 0.2, 'YXZ');
+    root.add(pivot);
+    const group = new THREE.Group(); pivot.add(group);
+    const tilt = new THREE.Group(); tilt.rotation.set((rand() - 0.5) * 0.9, 0, (rand() - 0.5) * 0.5); group.add(tilt);
+    const mesh = new THREE.Mesh(geo, mat); mesh.castShadow = true; mesh.receiveShadow = true; tilt.add(mesh);
+
+    const atmoMat = new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: new THREE.Color(...def.atmo) }, uIntensity: { value: def.atmoI }, uPower: { value: def.atmoP } },
+      vertexShader: ATMO_VERT, fragmentShader: ATMO_FRAG,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+    });
+    const atmo = new THREE.Mesh(atmoGeo, atmoMat);
+    atmo.scale.setScalar(r * (def.key === 'gas' ? 1.05 : def.key === 'ocean' ? 1.12 : 1.09));
+    group.add(atmo);
+
+    const hit = new THREE.Mesh(new THREE.SphereGeometry(Math.max(r * 1.6, 0.95), 12, 8), new THREE.MeshBasicMaterial());
+    hit.visible = false; group.add(hit);
+
+    const body = { def, idx, r, pivot, group, tilt, mesh, atmo, atmoMat, emitU: mat.userData.uEmit,
+      a, e, b: a * Math.sqrt(1 - e * e), omega: 0.135 / Math.pow(a / 6, 1.5), theta: rand() * TAU,
+      spinSpeed: (0.1 + rand() * 0.25) * (rand() < 0.2 ? -1 : 1), speedMul: 1, hov: 0, sel: 0, dim: 1, extra: null, moon: null, lastTheta: 0 };
+    hit.userData.pick = { type: 'body', body };
+    W.pickables.push(hit);
+
+    // Orbit path
+    const pts = [];
+    for (let k = 0; k < 200; k++) { const t = (k / 200) * TAU; pts.push(new THREE.Vector3(a * Math.cos(t) - a * e, 0, body.b * Math.sin(t))); }
+    body.orbitMat = new THREE.LineBasicMaterial({ color: 0x8fe9ff, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    pivot.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), body.orbitMat));
+
+    // Per-type adornments
+    if (def.key === 'ice') {
+      const ringTex = canvasTexture(512, 4, (x, w, h) => {
+        for (let px = 0; px < w; px++) {
+          const s = px / w;
+          let al = 0.25 + 0.75 * Math.abs(Math.sin(px * 0.09 + Math.sin(px * 0.013) * 4)) * (0.6 + 0.4 * N(px * 0.05, seed % 97, 3));
+          if (s > 0.44 && s < 0.5) al *= 0.1;
+          al *= smooth(0, 0.05, s) * smooth(1, 0.9, s);
+          x.fillStyle = `rgba(215,232,255,${clamp(al * 0.85).toFixed(3)})`; x.fillRect(px, 0, 1, h);
+        }
+      });
+      const ring = new THREE.Mesh(polarRingGeometry(r * 1.45, r * 2.55, 160), new THREE.MeshStandardMaterial({
+        map: ringTex, transparent: true, side: THREE.DoubleSide, depthWrite: false, roughness: 0.8, metalness: 0,
+        emissive: 0x141c2a, emissiveMap: ringTex,
+      }));
+      ring.rotation.x = Math.PI / 2; ring.castShadow = false; ring.receiveShadow = true;
+      tilt.add(ring);
+    }
+    if (def.key === 'rock') {
+      const mg = makePlanetGeometry(W, 'rock', LOW ? 8 : 12, false, r * 0.26, 12);
+      const mm = new THREE.Mesh(mg, patchEmissive(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 }), 0xffffff, 0));
+      mm.castShadow = true;
+      const mp = new THREE.Group(); mp.rotation.set(0.35, 0, 0.2); mp.add(mm); group.add(mp);
+      body.moon = { pivot: mp, mesh: mm, dist: r * 2.3, ang: rand() * TAU, sp: 0.55 };
+    }
+    if (def.key === 'crystal') {
+      const cnt = 14;
+      const inst = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1, 0), mat, cnt);
+      const zero = new Float32Array(inst.geometry.attributes.position.count);
+      inst.geometry.setAttribute('aEmit', new THREE.BufferAttribute(zero.fill(0.6), 1));
+      inst.geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(zero.length * 3).fill(0.7), 3));
+      const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), eu = new THREE.Euler();
+      for (let k = 0; k < cnt; k++) {
+        const ang = (k / cnt) * TAU, rr = r * (1.9 + rand() * 0.5);
+        p.set(Math.cos(ang) * rr, (rand() - 0.5) * r * 0.5, Math.sin(ang) * rr);
+        q.setFromEuler(eu.set(rand() * TAU, rand() * TAU, 0)); s.set(0.04, 0.12 + rand() * 0.1, 0.04);
+        m.compose(p, q, s); inst.setMatrixAt(k, m);
+      }
+      inst.castShadow = true;
+      const ex = new THREE.Group(); ex.rotation.x = 0.4; ex.add(inst); group.add(ex);
+      body.extra = ex;
+    }
+    W.bodies.push(body);
+    await nextFrame();
+  }
+
+  /* ---------------- The dais ---------------- */
+  progress(0.86, 'Raising the dais');
+  {
+    const dais = new THREE.Group(); dais.position.y = -5.4; root.add(dais); W.dais = dais;
+    const s = 0.6, NR = 9, Rmax = 8.2;
+    const tiles = [];
+    for (let q = -NR; q <= NR; q++) for (let r = -NR; r <= NR; r++) {
+      if (Math.abs(q + r) > NR) continue;
+      const x = s * Math.sqrt(3) * (q + r / 2), z = s * 1.5 * r, dist = Math.hypot(x, z);
+      if (dist > Rmax) continue;
+      const edge = dist / Rmax;
+      if (edge > 0.55 && N(x * 0.35, 4.2, z * 0.35) * 0.5 + 0.5 < (edge - 0.55) * 2.3) continue;
+      if (rand() < 0.03 && dist > 2) continue;
+      tiles.push({ x, z, dist, edge });
+    }
+    const tileMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.82, metalness: 0.25 });
+    const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(s * 0.94, s * 0.94, 1, 6), tileMat, tiles.length);
+    const m = new THREE.Matrix4(), qq = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), eu = new THREE.Euler();
+    const c = new THREE.Color(), cA = new THREE.Color('#161d2d'), cB = new THREE.Color('#2b344b'), cG = new THREE.Color('#4a3d24');
+    tiles.forEach((t, i) => {
+      const h = 0.35 + rand() * 0.5;
+      let top = t.dist < 1.7 ? 0.1 : rand() * 0.07;
+      if (t.edge > 0.72) top -= rand() * 0.28;
+      p.set(t.x, top - h / 2, t.z);
+      qq.setFromEuler(eu.set(t.edge > 0.8 ? (rand() - 0.5) * 0.12 : 0, 0, t.edge > 0.8 ? (rand() - 0.5) * 0.12 : 0));
+      sc.set(1, h, 1); m.compose(p, qq, sc); im.setMatrixAt(i, m);
+      c.copy(cA).lerp(cB, rand()); if (Math.abs(t.dist - 3.3) < 0.45) c.lerp(cG, 0.5);
+      im.setColorAt(i, c);
+    });
+    im.receiveShadow = true;
+    dais.add(im);
+    const inlay = (R, tube, col) => { const mm = new THREE.Mesh(new THREE.TorusGeometry(R, tube, 6, 200), new THREE.MeshBasicMaterial({ color: col })); mm.rotation.x = Math.PI / 2; mm.position.y = 0.13; dais.add(mm); };
+    inlay(2.35, 0.012, new THREE.Color(0.4, 1.5, 2.0));
+    inlay(5.25, 0.01, new THREE.Color(2.0, 1.4, 0.6));
+    const gt = W.glyphBase.clone(); gt.repeat.set(8, 1); gt.needsUpdate = true;
+    W.daisGlyph = new THREE.MeshBasicMaterial({ map: gt, color: new THREE.Color(1.3, 0.95, 0.5), transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    const dg = new THREE.Mesh(polarRingGeometry(2.95, 3.55, 256), W.daisGlyph); dg.rotation.x = -Math.PI / 2; dg.position.y = 0.14; dais.add(dg);
+    W.daisGlyphTex = gt;
+    // Contact shadow under the relic
+    W.contact = new THREE.Mesh(new THREE.PlaneGeometry(6.5, 6.5), new THREE.MeshBasicMaterial({
+      map: radialTexture([[0, 'rgba(0,0,0,0.85)'], [0.35, 'rgba(0,0,0,0.45)'], [1, 'rgba(0,0,0,0)']]), transparent: true, depthWrite: false,
+    }));
+    W.contact.rotation.x = -Math.PI / 2; W.contact.position.y = 0.125; W.contact.renderOrder = 1; dais.add(W.contact);
+    // Up-light column between dais and relic
+    W.column = makeBeam(1.0, 1.7, 5.2, [0.35, 0.85, 1.0], 0.06, -0.4);
+    W.column.position.y = 2.7; dais.add(W.column);
+  }
+  await nextFrame();
+
+  /* ---------------- Particles ---------------- */
+  progress(0.93, 'Scattering dust and sparks');
+  {
+    // Drifting dust
+    const DN = LOW ? 1300 : 2400;
+    const pos = new Float32Array(DN * 3), col = new Float32Array(DN * 3), size = new Float32Array(DN), ph = new Float32Array(DN);
+    const blue = new THREE.Color(0.45, 0.62, 0.9), gold = new THREE.Color(1.0, 0.78, 0.45);
+    for (let i = 0; i < DN; i++) {
+      const u = rand() * 2 - 1, th = rand() * TAU, rr = Math.sqrt(1 - u * u), rad = 3 + Math.pow(rand(), 0.7) * 30;
+      pos.set([rr * Math.cos(th) * rad, u * rad * 0.55, rr * Math.sin(th) * rad], i * 3);
+      const cc = rand() < 0.22 ? gold : blue; col.set([cc.r, cc.g, cc.b], i * 3);
+      size[i] = 0.5 + Math.pow(rand(), 3) * 2.6; ph[i] = rand();
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+    g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+    g.setAttribute('aPhase', new THREE.BufferAttribute(ph, 1));
+    W.dustU = { uTime: { value: 0 }, uPR: { value: PR }, uEnergy: { value: 0 }, uIntro: { value: 0 } };
+    const dust = new THREE.Points(g, new THREE.ShaderMaterial({
+      uniforms: W.dustU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+      vertexShader: /* glsl */`
+        attribute vec3 aColor; attribute float aSize; attribute float aPhase;
+        uniform float uTime, uPR, uEnergy, uIntro; varying vec3 vColor; varying float vAlpha;
+        void main(){
+          vec3 p = position; float t = uTime * 0.05;
+          p += vec3(sin(t * 1.3 + aPhase * 6.28), sin(t * 0.9 + aPhase * 12.1) * 0.6, cos(t * 1.1 + aPhase * 9.7)) * 1.2;
+          float ang = uTime * 0.012 / (1.0 + length(p.xz) * 0.06);
+          float c = cos(ang), s = sin(ang); p.xz = mat2(c, -s, s, c) * p.xz;
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          gl_Position = projectionMatrix * mv;
+          float depth = -mv.z;
+          gl_PointSize = aSize * uPR * (34.0 / max(depth, 0.5));
+          vAlpha = smoothstep(0.6, 4.0, depth) * (1.0 - smoothstep(40.0, 80.0, depth)) * (0.45 + 0.55 * sin(uTime * 0.6 + aPhase * 30.0) * 0.5 + 0.275) * uIntro;
+          vColor = aColor * (0.55 + uEnergy * 1.5);
+        }`,
+      fragmentShader: /* glsl */`
+        varying vec3 vColor; varying float vAlpha;
+        void main(){ float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.0, d); gl_FragColor = vec4(vColor * a * a * vAlpha, 1.0); }`,
+    }));
+    dust.frustumCulled = false; dust.renderOrder = 6;
+    root.add(dust);
+
+    // Orbiting energy sparks
+    const SN = LOW ? 380 : 650;
+    const U = new Float32Array(SN * 3), V = new Float32Array(SN * 3), sd = new Float32Array(SN * 4);
+    const n = new THREE.Vector3(), u = new THREE.Vector3(), v = new THREE.Vector3(), tmp = new THREE.Vector3();
+    for (let i = 0; i < SN; i++) {
+      const uu = rand() * 2 - 1, th = rand() * TAU, rr = Math.sqrt(1 - uu * uu);
+      n.set(rr * Math.cos(th), uu, rr * Math.sin(th));
+      tmp.set(0, 1, 0); if (Math.abs(n.y) > 0.9) tmp.set(1, 0, 0);
+      u.crossVectors(n, tmp).normalize(); v.crossVectors(n, u);
+      U.set([u.x, u.y, u.z], i * 3); V.set([v.x, v.y, v.z], i * 3);
+      const R = 1.4 + Math.pow(rand(), 1.5) * 2.6;
+      sd.set([R, (0.35 + rand() * 0.9) * (rand() < 0.5 ? -1 : 1) / Math.sqrt(R), rand() * TAU, 0.8 + rand() * 2.2], i * 4);
+    }
+    const sg = new THREE.BufferGeometry();
+    sg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SN * 3), 3));
+    sg.setAttribute('aU', new THREE.BufferAttribute(U, 3));
+    sg.setAttribute('aV', new THREE.BufferAttribute(V, 3));
+    sg.setAttribute('aData', new THREE.BufferAttribute(sd, 4));
+    W.sparkU = { uTime: { value: 0 }, uPR: { value: PR }, uEnergy: { value: 0 } };
+    const sparks = new THREE.Points(sg, new THREE.ShaderMaterial({
+      uniforms: W.sparkU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+      vertexShader: /* glsl */`
+        attribute vec3 aU; attribute vec3 aV; attribute vec4 aData;
+        uniform float uTime, uPR, uEnergy; varying vec3 vColor; varying float vA;
+        void main(){
+          float ang = aData.z + uTime * aData.y * (1.0 + uEnergy * 3.0);
+          float r = aData.x * (1.0 + uEnergy * 0.7) + 0.08 * sin(uTime * 2.0 + aData.z * 5.0);
+          vec3 p = (aU * cos(ang) + aV * sin(ang)) * r;
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          gl_Position = projectionMatrix * mv;
+          float tw = 0.5 + 0.5 * sin(uTime * 6.0 + aData.z * 31.0);
+          gl_PointSize = aData.w * uPR * (22.0 / max(-mv.z, 0.5)) * (0.6 + tw * 0.6);
+          vColor = mix(vec3(2.4, 1.6, 0.7), vec3(0.7, 1.9, 2.4), step(0.5, fract(aData.z * 3.7)));
+          vA = (0.35 + tw * 0.65) * (1.0 + uEnergy * 1.5);
+        }`,
+      fragmentShader: /* glsl */`
+        varying vec3 vColor; varying float vA;
+        void main(){ float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.0, d); gl_FragColor = vec4(vColor * a * a * vA, 1.0); }`,
+    }));
+    sparks.frustumCulled = false; sparks.renderOrder = 6;
+    relic.add(sparks);
+
+    // Eruption burst (dormant until the relic is awakened)
+    const EN = LOW ? 1500 : 2800;
+    const vel = new Float32Array(EN * 3), ed = new Float32Array(EN * 4);
+    for (let i = 0; i < EN; i++) {
+      const uu = rand() * 2 - 1, th = rand() * TAU, rr = Math.sqrt(1 - uu * uu);
+      let x = rr * Math.cos(th), y = uu, z = rr * Math.sin(th);
+      if (rand() < 0.45) { y *= 0.2; const l = Math.hypot(x, y, z); x /= l; y /= l; z /= l; }
+      const sp = 4 + Math.pow(rand(), 2) * 15;
+      vel.set([x * sp, y * sp, z * sp], i * 3);
+      ed.set([2.2 + rand() * 3.8, 1 + rand() * 3, rand(), rand()], i * 4);
+    }
+    const eg = new THREE.BufferGeometry();
+    eg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(EN * 3), 3));
+    eg.setAttribute('aVel', new THREE.BufferAttribute(vel, 3));
+    eg.setAttribute('aData', new THREE.BufferAttribute(ed, 4));
+    W.eruptU = { uTime: { value: 0 }, uStart: { value: -1e4 }, uPR: { value: PR } };
+    const erupt = new THREE.Points(eg, new THREE.ShaderMaterial({
+      uniforms: W.eruptU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+      vertexShader: /* glsl */`
+        attribute vec3 aVel; attribute vec4 aData;
+        uniform float uTime, uStart, uPR; varying vec3 vColor; varying float vA;
+        void main(){
+          float t = uTime - uStart; float life = aData.x; float k = clamp(t / life, 0.0, 1.0);
+          vec3 p = aVel * (1.0 - exp(-t * 1.5)) / 1.5;
+          float sw = t * 0.5 * (aData.w - 0.5); float c = cos(sw), s = sin(sw); p.xz = mat2(c, -s, s, c) * p.xz;
+          p.y -= t * t * 0.05;
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          gl_Position = projectionMatrix * mv;
+          vA = (t > 0.0 && t < life) ? (1.0 - k) * (1.0 - k) * smoothstep(0.0, 0.06, t) : 0.0;
+          gl_PointSize = vA > 0.0 ? aData.y * uPR * (30.0 / max(-mv.z, 0.5)) * (1.0 - k * 0.5) : 0.0;
+          vColor = mix(vec3(3.0, 1.9, 0.8), vec3(0.8, 2.2, 3.0), smoothstep(0.3, 0.9, aData.z + k * 0.3));
+        }`,
+      fragmentShader: /* glsl */`
+        varying vec3 vColor; varying float vA;
+        void main(){ if (vA <= 0.0) discard; float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.0, d); gl_FragColor = vec4(vColor * a * a * vA, 1.0); }`,
+    }));
+    erupt.frustumCulled = false; erupt.renderOrder = 7;
+    relic.add(erupt);
+
+    // Shockwave shell + ring
+    W.shockMat = new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: new THREE.Color(1.2, 1.0, 0.8) }, uIntensity: { value: 0 }, uPower: { value: 2.5 } },
+      vertexShader: ATMO_VERT, fragmentShader: ATMO_FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+    });
+    W.shock = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), W.shockMat); W.shock.visible = false; W.shock.renderOrder = 8;
+    root.add(W.shock);
+    W.shockRingMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 1.9, 1.0), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+    W.shockRing = new THREE.Mesh(new THREE.RingGeometry(0.94, 1.0, 160), W.shockRingMat);
+    W.shockRing.rotation.x = -Math.PI / 2; W.shockRing.visible = false; W.shockRing.renderOrder = 8;
+    root.add(W.shockRing);
+  }
+
+  W.erupt = (t) => { W.eruptU.uStart.value = t; };
+
+  /* ---------------- Per-frame update ---------------- */
+  const tmpV = new THREE.Vector3();
+  W.update = (dt, t, env, rdt) => {
+    const I = W.intro;
+    relic.scale.setScalar(Math.max(1e-4, easeOutBack(clamp(I * 1.35 - 0.05))));
+    relic.position.y = Math.sin(t * 0.35) * 0.18;
+    relic.rotation.y += dt * 0.04;
+
+    const breathe = 1 + 0.045 * Math.sin(t * 1.25) + 0.015 * Math.sin(t * 3.1);
+    W.heartU.uTime.value = t;
+    W.heartU.uPulse.value = 0.5 + 0.5 * Math.sin(t * 1.25) + env.ping;
+    W.heartU.uEnergy.value = env.charge * 1.2 + env.burst;
+    W.heart.scale.setScalar(breathe * (1 + env.charge * 0.35 + env.burst * 0.45 + env.ping * 0.2));
+    W.shell.scale.setScalar(1 + 0.02 * Math.sin(t * 1.25 - 0.5) + env.burst * 0.08 - env.charge * 0.04);
+    W.shell.rotation.y += dt * 0.11; W.shell.rotation.x = Math.sin(t * 0.2) * 0.12;
+    W.lattice.rotation.y -= dt * 0.3; W.lattice.rotation.z += dt * 0.17;
+    W.shards.rotation.y += dt * 0.07; W.shards.rotation.x = Math.sin(t * 0.13) * 0.2;
+    W.shards.scale.setScalar(1 + env.expand * 0.45 - env.charge * 0.15);
+
+    W.rings.forEach((R, i) => {
+      const ri = easeOutBack(clamp(I * 2.2 - 0.35 - i * 0.12));
+      R.pivot.rotation.set(R.base.x + t * R.prec.x, R.base.y + t * R.prec.y, R.base.z);
+      R.spin += dt * R.speed * (1 + env.expand * 6 + env.burst * 3 - env.charge * 0.8);
+      R.spinner.rotation.z = R.spin;
+      R.spinner.scale.setScalar(Math.max(1e-4, ri * (1 + env.expand * R.expand)));
+      R.tex.offset.x += dt * R.texSpeed;
+      R.glyphMat.opacity = (0.7 + 0.2 * Math.sin(t * 0.8 + i) + env.burst * 0.6 + env.charge * 0.4) * clamp(I * 2 - 0.6 - i * 0.1);
+      R.beads.forEach((b) => { const a = b.ph + t * b.sp; b.m.position.set(Math.cos(a) * R.R, Math.sin(a) * R.R, 0); });
+    });
+    W.beltPivot.rotation.y += dt * 0.02 * (1 + env.expand * 4);
+
+    W.filU.uTime.value = t;
+    W.filU.uEnergy.value = env.charge * 1.5 + env.burst * 2.2 + env.selAmt * 0.5 + env.ping;
+    W.filU.uIntro.value = smooth(0.25, 0.95, I);
+    W.filaments.rotation.y += dt * 0.06; W.filaments.rotation.x = Math.sin(t * 0.07) * 0.3;
+
+    W.halo.material.opacity = (0.5 + 0.12 * Math.sin(t * 1.25) + env.burst * 0.45 + env.charge * 0.3) * I;
+    W.halo.scale.setScalar(6.5 * (1 + env.charge * 0.3 + env.burst * 0.6));
+    W.halo2.material.opacity = (0.55 + env.burst * 0.6) * I;
+
+    W.sparkU.uTime.value = t; W.sparkU.uEnergy.value = env.charge * 0.6 + env.burst * 1.2;
+    W.eruptU.uTime.value = t;
+    W.dustU.uTime.value = t; W.dustU.uEnergy.value = env.burst * 0.8; W.dustU.uIntro.value = smooth(0.1, 0.8, I);
+
+    // Shockwave
+    if (env.shockT >= 0 && env.shockT < 4.5) {
+      const k = env.shockT, s = 2 + 44 * (1 - Math.exp(-k * 1.1));
+      W.shock.visible = W.shockRing.visible = true;
+      W.shock.position.copy(relic.position); W.shockRing.position.copy(relic.position);
+      W.shock.scale.setScalar(s); W.shockRing.scale.setScalar(s * 1.05);
+      W.shockMat.uniforms.uIntensity.value = 0.9 * Math.exp(-k * 1.3);
+      W.shockRingMat.opacity = 0.7 * Math.exp(-k * 1.1);
+    } else { W.shock.visible = W.shockRing.visible = false; }
+
+    // Bodies
+    const orbitIntro = smooth(0.35, 1.0, I);
+    for (const b of W.bodies) {
+      const isSel = env.selected === b, isHov = env.hovered === b;
+      b.speedMul += ((isSel ? 0.1 : 1) - b.speedMul) * damp(rdt, 2);
+      b.theta += dt * b.omega * b.speedMul * (1 + env.expand * 3.5 + env.burst * 2);
+      b.group.position.set(b.a * Math.cos(b.theta) - b.a * b.e, 0, b.b * Math.sin(b.theta));
+      b.mesh.rotation.y += dt * b.spinSpeed;
+      b.hov += ((isHov ? 1 : 0) - b.hov) * damp(rdt, 8);
+      b.sel += ((isSel ? 1 : 0) - b.sel) * damp(rdt, 4);
+      b.dim += ((env.selected && !isSel ? 0.45 : 1) - b.dim) * damp(rdt, 3);
+      b.atmoMat.uniforms.uIntensity.value = b.def.atmoI * (0.85 + b.hov * 0.9 + b.sel * 0.5 + env.burst * 1.6) * b.dim * orbitIntro;
+      if (b.emitU) b.emitU.value = b.def.emitK * (0.85 + 0.15 * Math.sin(t * 1.7 + b.idx) + env.burst * 1.5 + b.sel * 0.4);
+      b.orbitMat.opacity = (0.07 + b.hov * 0.18 + b.sel * 0.32 + env.burst * 0.25) * orbitIntro * (0.4 + 0.6 * b.dim);
+      const si = easeOutBack(clamp(I * 1.7 - 0.45 - b.idx * 0.08));
+      b.group.scale.setScalar(Math.max(1e-4, si * (1 + b.hov * 0.06)));
+      if (b.moon) { b.moon.ang += dt * b.moon.sp; b.moon.mesh.position.set(Math.cos(b.moon.ang) * b.moon.dist, 0, Math.sin(b.moon.ang) * b.moon.dist); b.moon.mesh.rotation.y += dt * 0.3; }
+      if (b.extra) b.extra.rotation.y += dt * 0.5;
+    }
+
+    // Dais
+    W.dais.position.y = -5.4 + Math.sin(t * 0.21) * 0.08;
+    W.dais.rotation.y += dt * 0.008;
+    W.daisGlyphTex.offset.x -= dt * 0.004;
+    W.daisGlyph.opacity = (0.55 + 0.15 * Math.sin(t * 0.6) + env.burst) * clamp(I * 1.5 - 0.3);
+    const lift = relic.position.y - W.dais.position.y;
+    W.contact.material.opacity = clamp(1.25 - lift * 0.1) * (0.85 + 0.15 * breathe) * clamp(I * 2);
+    W.contact.scale.setScalar(0.9 + lift * 0.03);
+    W.column.material.uniforms.uIntensity.value = (0.05 + env.burst * 0.25 + env.charge * 0.1) * I;
+    tmpV.set(0, 0, 0);
+  };
+
+  progress(1, 'Listening');
+  scene.add(root);
+  return W;
+}
+
+/* =========================================================================
+   Holographic information panel
+   ========================================================================= */
+const SERIF = '"Cormorant Garamond", Garamond, Georgia, serif';
+const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
+const PW = 1024, PH = 640;
+const panelCanvas = document.createElement('canvas'); panelCanvas.width = PW; panelCanvas.height = PH;
+const pctx = panelCanvas.getContext('2d');
+const panelTex = new THREE.CanvasTexture(panelCanvas);
+panelTex.colorSpace = THREE.SRGBColorSpace; panelTex.generateMipmaps = false; panelTex.minFilter = THREE.LinearFilter;
+const panelU = { map: { value: panelTex }, uTime: { value: 0 }, uReveal: { value: 0 } };
+const panel = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
+  uniforms: panelU, transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D map; uniform float uTime, uReveal; varying vec2 vUv;
+    float hash(float n){ return fract(sin(n) * 43758.5453); }
+    void main(){
+      vec2 uv = vUv;
+      float rx = clamp(uReveal / 0.35, 0.0, 1.0), ry = clamp((uReveal - 0.28) / 0.72, 0.0, 1.0);
+      float ax = abs(uv.x - 0.5) * 2.0, ay = abs(uv.y - 0.5) * 2.0;
+      if (ax > rx || ay > max(ry, 0.006)) discard;
+      float row = floor(uv.y * 90.0);
+      float gl = step(0.992, hash(row + floor(uTime * 14.0))) * 0.014 * (hash(row * 3.1) - 0.5);
+      vec4 t = texture2D(map, uv + vec2(gl, 0.0));
+      float scan = 0.84 + 0.16 * sin(uv.y * 1300.0 - uTime * 4.0);
+      float flick = 0.94 + 0.06 * sin(uTime * 31.0) * sin(uTime * 17.3);
+      vec3 col = t.rgb * t.a * 1.3 * scan * flick;
+      col += vec3(0.014, 0.045, 0.07) * (0.7 + 0.3 * smoothstep(1.0, 0.0, length(uv - 0.5)));
+      col += vec3(0.5, 0.9, 1.0) * smoothstep(0.03, 0.0, abs(ay - ry)) * (1.0 - ry) * 1.5;
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+}));
+panel.renderOrder = 1000; panel.visible = false; panel.frustumCulled = false;
+panel.userData.pick = { type: 'panel' };
+scene.add(panel);
+
+const connector = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+  new THREE.LineBasicMaterial({ color: new THREE.Color(0.6, 1.5, 1.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, fog: false }));
+connector.renderOrder = 999; connector.frustumCulled = false; scene.add(connector);
+
+// Reticle that locks on to hovered / selected bodies
+const reticle = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
+  map: canvasTexture(256, 256, (x, w) => {
+    x.strokeStyle = '#fff'; x.lineWidth = 2; const c = w / 2;
+    for (let i = 0; i < 3; i++) { x.beginPath(); x.arc(c, c, 108, i * TAU / 3 + 0.2, i * TAU / 3 + TAU / 3 - 0.2); x.stroke(); }
+    x.lineWidth = 1; x.globalAlpha = 0.6; x.beginPath(); x.arc(c, c, 118, 0, TAU); x.stroke();
+    x.globalAlpha = 1; x.lineWidth = 3;
+    for (let i = 0; i < 4; i++) { const a = i * TAU / 4; x.beginPath(); x.moveTo(c + Math.cos(a) * 96, c + Math.sin(a) * 96); x.lineTo(c + Math.cos(a) * 82, c + Math.sin(a) * 82); x.stroke(); }
+  }),
+  color: new THREE.Color(0.6, 1.6, 2.0), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, fog: false,
+}));
+reticle.renderOrder = 998; reticle.visible = false; scene.add(reticle);
+
+// Tether from relic core to the selected world
+const tetherU = { uTime: { value: 0 }, uOpacity: { value: 0 } };
+const tether = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1, 6, 1, true), new THREE.ShaderMaterial({
+  uniforms: tetherU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform float uTime, uOpacity; varying vec2 vUv;
+    void main(){
+      float s = vUv.y;
+      float pulse = pow(fract(s * 5.0 - uTime * 1.3), 8.0);
+      float ends = smoothstep(0.0, 0.08, s) * smoothstep(1.0, 0.9, s);
+      vec3 col = mix(vec3(2.2, 1.5, 0.7), vec3(0.6, 1.8, 2.3), s);
+      gl_FragColor = vec4(col * (0.12 + pulse * 1.4) * ends * uOpacity, 1.0);
+    }`,
+}));
+tether.renderOrder = 6; tether.visible = false; tether.frustumCulled = false; scene.add(tether);
+
+function wrapLines(ctx, text, maxW) {
+  const words = text.split(' '), lines = []; let line = '';
+  for (const w of words) { const test = line ? line + ' ' + w : w; if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test; }
+  if (line) lines.push(line);
+  return lines;
+}
+const GLYPHS = '0123456789ABCDEF#%/';
+function scramble(str, p) {
+  let out = '';
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    out += (ch === ' ' || ch === '.' || ch === ',' || i / str.length < p) ? ch : GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+  }
+  return out;
+}
+const SLICE = ['233,199,132', '143,233,255', '160,140,255', '215,230,244'];
+
+function drawPanel(b, age, tSim, total) {
+  const c = pctx, d = b.def;
+  c.clearRect(0, 0, PW, PH);
+  c.textBaseline = 'alphabetic';
+  // Frame
+  c.strokeStyle = 'rgba(143,233,255,0.5)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(4, 4); c.lineTo(PW - 64, 4); c.lineTo(PW - 4, 64); c.lineTo(PW - 4, PH - 4); c.lineTo(64, PH - 4); c.lineTo(4, PH - 64); c.closePath(); c.stroke();
+  c.strokeStyle = 'rgba(233,199,132,0.9)'; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(18, 52); c.lineTo(18, 18); c.lineTo(52, 18); c.stroke();
+  c.beginPath(); c.moveTo(PW - 18, PH - 52); c.lineTo(PW - 18, PH - 18); c.lineTo(PW - 52, PH - 18); c.stroke();
+
+  // Header
+  c.font = `500 15px ${MONO}`; c.fillStyle = 'rgba(143,233,255,0.75)';
+  c.fillText(`SPECIMEN ${ROMAN[b.idx]} OF ${ROMAN[total - 1]}   ·   ${d.cls} CLASS`, 48, 56);
+  const title = d.name.slice(0, Math.floor(age * 34));
+  c.font = `600 60px ${SERIF}`; c.fillStyle = 'rgba(240,208,145,0.97)'; c.fillText(title, 46, 118);
+  c.font = `italic 500 29px ${SERIF}`; c.fillStyle = `rgba(160,225,255,${(0.85 * clamp(age * 2 - 0.4)).toFixed(3)})`;
+  c.fillText(d.epithet, 48, 158);
+
+  // Mini orbit diagram
+  {
+    const cx = PW - 118, cy = 96, sc = 48 / b.a;
+    c.strokeStyle = 'rgba(143,233,255,0.25)'; c.lineWidth = 1.2;
+    c.beginPath(); c.ellipse(cx - b.a * b.e * sc, cy, b.a * sc, b.b * sc, 0, 0, TAU); c.stroke();
+    c.fillStyle = 'rgba(255,215,150,0.95)'; c.beginPath(); c.arc(cx, cy, 3.5, 0, TAU); c.fill();
+    const bx = cx + (b.a * Math.cos(b.theta) - b.a * b.e) * sc, by = cy + b.b * Math.sin(b.theta) * sc;
+    c.strokeStyle = 'rgba(143,233,255,0.9)'; c.lineWidth = 2.5;
+    c.beginPath(); c.ellipse(cx - b.a * b.e * sc, cy, b.a * sc, b.b * sc, 0, b.theta - 0.9, b.theta); c.stroke();
+    c.fillStyle = '#bff3ff'; c.beginPath(); c.arc(bx, by, 5, 0, TAU); c.fill();
+    c.font = `500 11px ${MONO}`; c.fillStyle = 'rgba(215,230,244,0.5)'; c.textAlign = 'center';
+    c.fillText('ORBIT TRACE', cx, cy + 70); c.textAlign = 'left';
+  }
+
+  // Divider with travelling spark
+  c.fillStyle = 'rgba(143,233,255,0.22)'; c.fillRect(48, 184, PW - 96, 1);
+  const sx = 48 + ((age * 0.35) % 1) * (PW - 96);
+  const gr = c.createLinearGradient(sx - 120, 0, sx, 0); gr.addColorStop(0, 'rgba(143,233,255,0)'); gr.addColorStop(1, 'rgba(200,245,255,0.95)');
+  c.fillStyle = gr; c.fillRect(Math.max(48, sx - 120), 183, Math.min(120, sx - 48), 3);
+
+  // Lore, typed in
+  c.font = `italic 400 27px ${SERIF}`; c.fillStyle = 'rgba(222,234,246,0.92)';
+  let budget = Math.floor(Math.max(0, age - 0.35) * 120);
+  wrapLines(c, d.lore, PW - 96).slice(0, 4).forEach((ln, i) => {
+    if (budget <= 0) return;
+    c.fillText(ln.slice(0, budget), 48, 228 + i * 34); budget -= ln.length;
+  });
+
+  // Section headers
+  const vy = 372;
+  c.font = `500 12px ${MONO}`; c.fillStyle = 'rgba(215,230,244,0.5)';
+  c.fillText('COMPOSITION', 48, vy); c.fillText('RESONANCE SIGNATURE', 412, vy); c.fillText('ORBITAL RECORD', 732, vy);
+  c.fillStyle = 'rgba(143,233,255,0.18)'; c.fillRect(48, vy + 10, 330, 1); c.fillRect(412, vy + 10, 290, 1); c.fillRect(732, vy + 10, 244, 1);
+
+  // Composition donut
+  {
+    const cx = 128, cy = 482, R = 66, sweep = easeOutCubic(clamp((age - 0.4) * 0.9));
+    c.lineWidth = 13; c.lineCap = 'butt';
+    c.strokeStyle = 'rgba(143,233,255,0.08)'; c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.stroke();
+    let a0 = -Math.PI / 2;
+    d.comp.forEach(([, v], i) => {
+      const a1 = a0 + v * TAU * sweep;
+      c.strokeStyle = `rgba(${SLICE[i]},0.9)`; c.beginPath(); c.arc(cx, cy, R, a0 + 0.03, Math.max(a0 + 0.03, a1 - 0.03)); c.stroke();
+      a0 = a1;
+    });
+    c.lineWidth = 1; c.strokeStyle = 'rgba(143,233,255,0.35)'; c.setLineDash([3, 7]); c.lineDashOffset = -age * 12;
+    c.beginPath(); c.arc(cx, cy, R + 16, 0, TAU); c.stroke(); c.setLineDash([]);
+    c.font = `600 30px ${SERIF}`; c.fillStyle = 'rgba(240,208,145,0.95)'; c.textAlign = 'center';
+    c.fillText(`${Math.round(sweep * 100)}`, cx, cy + 6); c.font = `500 10px ${MONO}`; c.fillStyle = 'rgba(215,230,244,0.5)'; c.fillText('ASSAYED', cx, cy + 24);
+    c.textAlign = 'left';
+    d.comp.forEach(([name, v], i) => {
+      const y = 430 + i * 32;
+      c.fillStyle = `rgba(${SLICE[i]},0.95)`; c.fillRect(222, y - 9, 9, 9);
+      c.font = `500 12px ${MONO}`; c.fillStyle = 'rgba(215,230,244,0.82)'; c.fillText(name, 240, y);
+      c.fillStyle = 'rgba(143,233,255,0.9)'; c.textAlign = 'right'; c.fillText(`${Math.round(v * 100 * sweep)}%`, 378, y); c.textAlign = 'left';
+    });
+  }
+
+  // Resonance waveform (driven by simulation time: freezes with the world)
+  {
+    const x0 = 412, y0 = 392, w = 290, h = 150, mid = y0 + h / 2;
+    c.strokeStyle = 'rgba(143,233,255,0.07)'; c.lineWidth = 1;
+    for (let i = 1; i < 6; i++) { c.beginPath(); c.moveTo(x0 + (w * i) / 6, y0); c.lineTo(x0 + (w * i) / 6, y0 + h); c.stroke(); }
+    for (let i = 1; i < 4; i++) { c.beginPath(); c.moveTo(x0, y0 + (h * i) / 4); c.lineTo(x0 + w, y0 + (h * i) / 4); c.stroke(); }
+    const amp = easeOutCubic(clamp((age - 0.5) * 1.2));
+    const wave = (k, col, lw, gain) => {
+      c.strokeStyle = col; c.lineWidth = lw; c.beginPath();
+      for (let px = 0; px <= w; px += 3) {
+        const s = px / w; let y = 0;
+        d.freqs.forEach((f, j) => { y += Math.sin(s * f * 6 + tSim * (1.2 + j * 0.7) * (k ? -0.6 : 1) + j * 1.7 + k) / (j + 1); });
+        y *= Math.sin(Math.PI * s) * h * 0.26 * amp * gain;
+        px === 0 ? c.moveTo(x0 + px, mid + y) : c.lineTo(x0 + px, mid + y);
+      }
+      c.stroke();
+    };
+    wave(1, 'rgba(233,199,132,0.45)', 1.5, 0.7);
+    wave(0, 'rgba(160,238,255,0.95)', 2.2, 1);
+    const scanX = x0 + ((tSim * 0.25) % 1) * w;
+    c.fillStyle = 'rgba(143,233,255,0.35)'; c.fillRect(scanX, y0, 1, h);
+    const lock = 80 + 15 * (0.5 + 0.5 * Math.sin(tSim * 0.7 + b.idx));
+    c.font = `500 12px ${MONO}`; c.fillStyle = 'rgba(215,230,244,0.6)';
+    c.fillText(`HARMONIC LOCK  ${lock.toFixed(1)}%`, x0, y0 + h + 26);
+  }
+
+  // Orbital record table with decoding values
+  {
+    const rows = [
+      ['DISTANCE', `${b.a.toFixed(2)} RL`],
+      ['PERIOD', `${(TAU / b.omega).toFixed(1)} BEATS`],
+      ['ECCENTRICITY', b.e.toFixed(3)],
+      ['SURFACE', d.temp],
+      ['AGE', d.age],
+      ['PHASE', `${(((b.theta * 180) / Math.PI) % 360 + 360) % 360 | 0} DEG`],
+    ];
+    rows.forEach(([k, v], i) => {
+      const y = 416 + i * 29, p = clamp((age - 0.5 - i * 0.12) * 1.6);
+      c.font = `500 12px ${MONO}`; c.fillStyle = 'rgba(215,230,244,0.5)'; c.fillText(k, 732, y);
+      c.font = `500 14px ${MONO}`; c.fillStyle = p >= 1 ? 'rgba(236,244,252,0.95)' : 'rgba(143,233,255,0.85)';
+      c.textAlign = 'right'; c.fillText(p > 0 ? scramble(v, p) : '', 976, y); c.textAlign = 'left';
+      c.fillStyle = 'rgba(143,233,255,0.08)'; c.fillRect(732, y + 9, 244, 1);
+    });
+  }
+
+  // Footer
+  c.font = `500 11px ${MONO}`; c.fillStyle = 'rgba(215,230,244,0.42)';
+  c.fillText(COARSE ? 'TAP THE PANEL OR THE VOID TO DISMISS' : 'CLICK THE PANEL, THE VOID, OR PRESS ESC TO DISMISS', 48, PH - 30);
+  c.textAlign = 'right'; c.fillStyle = 'rgba(143,233,255,0.7)';
+  c.fillText('RELIC-LINK ESTABLISHED', PW - 70, PH - 30);
+  if (Math.sin(age * 6) > 0) c.fillRect(PW - 62, PH - 40, 9, 9);
+  c.textAlign = 'left';
+  panelTex.needsUpdate = true;
+}
+
+/* =========================================================================
+   State, tweens, interaction
+   ========================================================================= */
+let world = null;
+let seed = (() => {
+  const h = location.hash.replace('#', '');
+  const v = /^[0-9a-fA-F]{1,8}$/.test(h) ? parseInt(h, 16) : NaN;
+  return Number.isFinite(v) ? v >>> 0 : (Math.random() * 0xffffffff) >>> 0;
+})();
+const designation = (s) => { const h = s.toString(16).toUpperCase().padStart(8, '0'); return `${h.slice(0, 4)}-${h.slice(4)}`; };
+
+let simTime = 0, realTime = 0, timeScale = 1, timeTarget = 1, frozen = false;
+let flash = 0, lastInteract = 0, resetting = false, pingV = 0, relicTapCount = 0;
+const awaken = { active: false, t: 0, fired: false, count: 0 };
+const env = { charge: 0, burst: 0, expand: 0, shockT: -1, ping: 0, selected: null, hovered: null, selAmt: 0 };
+let selected = null, panelBody = null, panelOpenedAt = 0, hovered = null, hoverRelic = false;
+let panelRevealTween = null;
+
+const tweens = new Set();
+function tween(dur, onUpdate, ease = easeInOutCubic, onDone) {
+  const tw = { t: 0, dur, onUpdate, ease, onDone }; tweens.add(tw); return tw;
+}
+function killTween(tw) { if (tw) tweens.delete(tw); }
+function updateTweens(dt) {
+  for (const tw of tweens) {
+    tw.t = Math.min(1, tw.t + dt / tw.dur);
+    tw.onUpdate(tw.ease(tw.t), tw.t);
+    if (tw.t >= 1) { tweens.delete(tw); tw.onDone && tw.onDone(); }
+  }
+}
+let dollyTween = null;
+function dollyTo(dist, dur = 1.6) {
+  killTween(dollyTween);
+  const d0 = camera.position.distanceTo(controls.target);
+  const d1 = clamp(dist, controls.minDistance, controls.maxDistance);
+  const dir = new THREE.Vector3();
+  dollyTween = tween(dur, (v) => {
+    dir.subVectors(camera.position, controls.target).normalize();
+    camera.position.copy(controls.target).addScaledVector(dir, lerp(d0, d1, v));
+  });
+}
+
+let toastTimer = 0;
+function toast(msg, dur = 3800) {
+  const el = $('toast'); el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), dur);
+}
+function setFrozen(f) {
+  frozen = f; timeTarget = f ? 0 : 1;
+  const s = $('tstate'); s.textContent = f ? 'TIME SUSPENDED' : 'TIME FLOWING'; s.classList.toggle('frozen', f);
+  $('b-freeze').classList.toggle('on', f); $('b-freeze').textContent = f ? 'RESUME' : 'FREEZE';
+}
+
+function selectBody(b) {
+  if (selected === b) return;
+  selected = b; panelBody = b; panelOpenedAt = realTime;
+  panel.visible = true;
+  killTween(panelRevealTween);
+  panelU.uReveal.value = 0;
+  panelRevealTween = tween(0.85, (v) => { panelU.uReveal.value = v; }, easeOutCubic);
+  dollyTo(b.r * 6.5 + 4.2, 1.8);
+  document.body.classList.add('hint-faded');
+}
+function closePanel(instant = false) {
+  if (!panelBody) return;
+  const wasSelected = !!selected;
+  selected = null;
+  killTween(panelRevealTween);
+  if (instant) { panelU.uReveal.value = 0; panel.visible = false; panelBody = null; return; }
+  const r0 = panelU.uReveal.value;
+  panelRevealTween = tween(0.4, (v) => { panelU.uReveal.value = r0 * (1 - v); }, easeInOutCubic, () => { panel.visible = false; panelBody = null; });
+  if (wasSelected) dollyTo(homeDistance() * 0.9, 2.2);
+}
+
+function triggerAwaken() {
+  if (awaken.active && awaken.t < 6) return;
+  closePanel();
+  awaken.active = true; awaken.t = 0; awaken.fired = false; awaken.count++;
+  $('reso').textContent = String(awaken.count);
+  toast(AWAKEN_LINES[(awaken.count - 1) % AWAKEN_LINES.length], 4600);
+  document.body.classList.add('hint-faded');
+}
+function relicPing() {
+  pingV = 1; relicTapCount++;
+  if (relicTapCount === 1) toast('It hums at your touch. It wants more than a single knock.', 4200);
+}
+
+async function resetScene(newRelic) {
+  if (resetting || !world) return;
+  resetting = true;
+  closePanel(true);
+  setFrozen(false);
+  $('veil').classList.add('on');
+  await wait(950);
+  disposeTree(world.root);
+  world = null;
+  awaken.active = false; awaken.t = 0; flash = 0; env.shockT = -1;
+  if (newRelic) {
+    seed = (Math.random() * 0xffffffff) >>> 0;
+    try { history.replaceState(null, '', '#' + seed.toString(16)); } catch (e) { /* sandboxed frames */ }
+  }
+  $('desig').textContent = designation(seed);
+  world = await buildWorld(seed);
+  killTween(dollyTween);
+  controls.target.set(0, 0, 0);
+  camera.position.copy(HOME).multiplyScalar(1.7);
+  dollyTo(homeDistance(), 4.2);
+  $('veil').classList.remove('on');
+  toast(newRelic ? 'Another relic surfaces from the dark.' : 'The relic settles back into its long patience.', 3800);
+  resetting = false;
+}
+
+/* ---------- Picking ---------- */
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+function pick(clientX, clientY) {
+  ndc.set((clientX / innerWidth) * 2 - 1, -(clientY / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  if (panel.visible && panelU.uReveal.value > 0.5) {
+    if (raycaster.intersectObject(panel, false).length) return panel.userData.pick;
+  }
+  if (!world) return null;
+  const hits = raycaster.intersectObjects(world.pickables, false);
+  return hits.length ? hits[0].object.userData.pick : null;
+}
+
+const pointer = { x: 0, y: 0, inside: false, moved: false };
+const downs = new Map();
+let lastRelicTap = -1;
+canvas.addEventListener('pointerdown', (e) => {
+  downs.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now() });
+  lastInteract = realTime;
+});
+canvas.addEventListener('pointermove', (e) => {
+  pointer.x = e.clientX; pointer.y = e.clientY; pointer.inside = true; pointer.moved = true;
+  if (e.buttons) lastInteract = realTime;
+});
+canvas.addEventListener('pointerleave', () => { pointer.inside = false; });
+const endPointer = (e, cancelled) => {
+  const d = downs.get(e.pointerId);
+  const multi = downs.size > 1;
+  downs.delete(e.pointerId);
+  if (!d || cancelled || multi) return;
+  const moved = Math.hypot(e.clientX - d.x, e.clientY - d.y), dur = performance.now() - d.t;
+  if (moved < 8 && dur < 500) handleTap(e.clientX, e.clientY);
+};
+canvas.addEventListener('pointerup', (e) => endPointer(e, false));
+canvas.addEventListener('pointercancel', (e) => endPointer(e, true));
+canvas.addEventListener('wheel', () => { lastInteract = realTime; }, { passive: true });
+
+function handleTap(x, y) {
+  if (resetting) return;
+  const hit = pick(x, y);
+  const now = performance.now();
+  if (hit && hit.type === 'panel') { closePanel(); return; }
+  if (hit && hit.type === 'relic') {
+    if (now - lastRelicTap < 420) { lastRelicTap = -1; triggerAwaken(); }
+    else { lastRelicTap = now; relicPing(); }
+    return;
+  }
+  if (hit && hit.type === 'body') { selectBody(hit.body); return; }
+  closePanel();
+}
+
+addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  lastInteract = realTime;
+  if (e.code === 'Space') { e.preventDefault(); setFrozen(!frozen); toast(frozen ? 'Time holds its breath.' : 'Time remembers how to move.', 2400); }
+  else if (e.code === 'KeyR') resetScene(false);
+  else if (e.code === 'KeyN') resetScene(true);
+  else if (e.code === 'Escape') closePanel();
+  else if (e.code === 'KeyH') document.body.classList.toggle('hud-hidden');
+});
+$('b-freeze').addEventListener('click', () => { setFrozen(!frozen); lastInteract = realTime; });
+$('b-reset').addEventListener('click', () => resetScene(false));
+$('b-new').addEventListener('click', () => resetScene(true));
+
+$('hint').innerHTML = COARSE
+  ? 'DRAG TO ORBIT<i>/</i>PINCH TO ZOOM<i>/</i>TAP A WORLD<i>/</i>DOUBLE-TAP THE RELIC'
+  : 'DRAG TO ORBIT<i>/</i>SCROLL TO ZOOM<i>/</i>CLICK A WORLD<i>/</i>DOUBLE-CLICK THE RELIC<i>/</i>SPACE FREEZES TIME<i>/</i>R RESETS<i>/</i>N NEW RELIC<i>/</i>H HIDES THIS';
+
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  composer.setPixelRatio(PR); composer.setSize(w, h);
+  finalPass.uniforms.uRes.value.set(w * PR, h * PR);
+}
+addEventListener('resize', resize);
+
+/* =========================================================================
+   Build & start
+   ========================================================================= */
+try { await Promise.race([document.fonts.load(`600 40px ${SERIF}`), wait(1500)]); } catch (e) { /* fonts optional */ }
+$('desig').textContent = designation(seed);
+world = await buildWorld(seed, (p, msg) => setProgress(0.14 + p * 0.72, msg));
+setProgress(0.9, 'Tuning the light');
+await nextFrame();
+try { await renderer.compileAsync(scene, camera); } catch (e) { /* compile lazily instead */ }
+setProgress(1, 'It is awake');
+await wait(350);
+
+// Frame loop
+const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), tmpC = new THREE.Vector3();
+const camRight = new THREE.Vector3(), camUp = new THREE.Vector3(), shake = new THREE.Vector3();
+const Y = new THREE.Vector3(0, 1, 0);
+let last = performance.now(), hudTick = 0, panelTick = 0, pointing = false;
+dollyTo(homeDistance(), 5.5);
+
+renderer.setAnimationLoop(() => {
+  const now = performance.now();
+  const rdt = Math.min(0.05, (now - last) / 1000); last = now;
+  realTime += rdt;
+  timeScale += (timeTarget - timeScale) * damp(rdt, 3.2);
+  if (Math.abs(timeScale - timeTarget) < 1e-3) timeScale = timeTarget;
+  const dt = rdt * timeScale;
+  simTime += dt;
+
+  updateTweens(rdt);
+
+  // Awakening envelope (runs on simulation time: freezing time freezes it too)
+  env.charge = 0; env.burst = 0; env.expand = 0; env.shockT = -1;
+  if (awaken.active) {
+    awaken.t += dt;
+    const T = awaken.t, FIRE = 1.35;
+    env.charge = smooth(0, FIRE, T) * (1 - smooth(FIRE, FIRE + 0.15, T));
+    if (!awaken.fired && T >= FIRE) {
+      awaken.fired = true;
+      if (world) world.erupt(simTime);
+      flash = 0.5;
+      dollyTo(Math.min(controls.maxDistance, camera.position.distanceTo(controls.target) * 1.65 + 4), 4.8);
+    }
+    if (T >= FIRE) {
+      const k = T - FIRE;
+      env.burst = Math.exp(-k * 0.85);
+      env.expand = (1 - Math.exp(-k * 3)) * (1 - smooth(4, 10, k));
+      env.shockT = k;
+    }
+    if (T > 12.5) awaken.active = false;
+  }
+  flash *= Math.exp(-rdt * 2.6);
+  pingV *= Math.exp(-rdt * 3);
+  env.ping = pingV;
+  env.selected = selected; env.hovered = hovered;
+  env.selAmt += ((selected ? 1 : 0) - env.selAmt) * damp(rdt, 3);
+
+  if (world) {
+    world.intro = Math.min(1, world.intro + rdt / 4.5);
+    world.update(dt, simTime, env, rdt);
+  }
+
+  // Lights
+  const relicY = world ? world.relic.position.y : 0;
+  coreLight.position.set(0, relicY, 0);
+  coreLight.intensity = (16 + 5 * Math.sin(simTime * 1.25) + env.charge * 22 + env.burst * 40 + pingV * 12) * (world ? world.intro : 0);
+  wisps.forEach((w, i) => {
+    w.angle += dt * w.w * (1 + env.expand * 4);
+    const x = Math.cos(w.angle) * w.r, z = Math.sin(w.angle) * w.r;
+    w.L.position.set(x, relicY + Math.sin(w.angle * 1.3 + i) * w.r * Math.sin(w.inc) * 0.6, z);
+    w.L.intensity = w.I * (0.65 + 0.35 * Math.sin(simTime * (0.9 + i * 0.37) + i * 2)) * (1 + env.burst * 3);
+  });
+  keyLight.intensity = 2.4 + env.burst * 1.5;
+  starU.uTime.value = simTime; beamU.uTime.value = simTime;
+  shaft.material.uniforms.uIntensity.value = 0.07 + env.burst * 0.12 + env.charge * 0.05;
+
+  // Hover picking (mouse only)
+  if (!COARSE && pointer.inside && downs.size === 0 && !resetting) {
+    const hit = pick(pointer.x, pointer.y);
+    hovered = hit && hit.type === 'body' ? hit.body : null;
+    hoverRelic = !!(hit && hit.type === 'relic');
+    const p = !!hit;
+    if (p !== pointing) { pointing = p; canvas.classList.toggle('pointing', p); }
+    const tip = $('tip');
+    if (hovered || hoverRelic) {
+      tip.innerHTML = hovered ? `${hovered.def.name}<small>${hovered.def.epithet.toUpperCase()}</small>` : `THE RELIC<small>IT IS LISTENING. KNOCK TWICE.</small>`;
+      tip.style.transform = `translate(${pointer.x + 18}px, ${pointer.y + 14}px)`;
+      tip.classList.add('show');
+    } else tip.classList.remove('show');
+  } else if (hovered || hoverRelic) { hovered = null; hoverRelic = false; $('tip').classList.remove('show'); }
+
+  // Camera focus: glide the orbit target toward the selected world (and back home)
+  const goal = tmpA.set(0, 0, 0);
+  camera.updateMatrixWorld();
+  camRight.setFromMatrixColumn(camera.matrixWorld, 0); camUp.setFromMatrixColumn(camera.matrixWorld, 1);
+  const aspect = innerWidth / innerHeight;
+  let panelW = 0, panelH = 0; const offset = tmpC.set(0, 0, 0);
+  const focusBody = panelBody || selected;
+  if (focusBody && world) {
+    focusBody.group.getWorldPosition(tmpB);
+    const dist = camera.position.distanceTo(tmpB);
+    const Hv = 2 * dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), Wv = Hv * aspect;
+    if (aspect >= 1.05) {
+      panelW = Math.min(Wv * 0.44, Hv * 1.12); panelH = panelW / 1.6;
+      offset.copy(camRight).multiplyScalar(focusBody.r * 1.3 + panelW / 2 + Hv * 0.03);
+    } else {
+      panelW = Wv * 0.94; panelH = panelW / 1.6;
+      offset.copy(camUp).multiplyScalar(-(focusBody.r * 1.3 + panelH / 2 + Hv * 0.03));
+    }
+    if (selected) goal.copy(tmpB).addScaledVector(offset, 0.5);
+  }
+  const before = tmpB.copy(controls.target);
+  controls.target.lerp(goal, damp(rdt, selected ? 3 : 1.6));
+  camera.position.add(before.subVectors(controls.target, before));
+
+  // Idle drift: slow auto-orbit and a gentle vertical sway after a few quiet seconds
+  const idle = smooth(6, 10, realTime - lastInteract) * (REDUCED ? 0.3 : 1);
+  controls.autoRotate = idle > 0.001;
+  controls.autoRotateSpeed = 0.32 * idle * (selected ? 0.35 : 1);
+  camera.position.y += Math.cos(realTime * 0.11) * 0.11 * 1.3 * rdt * idle;
+  controls.update(rdt);
+
+  // Panel placement & drawing
+  if (panel.visible && panelBody && world) {
+    camera.updateMatrixWorld();
+    panelBody.group.getWorldPosition(tmpB);
+    panel.position.copy(tmpB).add(offset);
+    panel.quaternion.copy(camera.quaternion);
+    panel.scale.set(panelW, panelH, 1);
+    panelU.uTime.value = realTime;
+    panelTick += rdt;
+    if (panelTick > 1 / 30) { panelTick = 0; drawPanel(panelBody, realTime - panelOpenedAt, simTime, world.bodies.length); }
+    const dirN = offset.clone().normalize();
+    const pos = connector.geometry.attributes.position;
+    const start = tmpA.copy(tmpB).addScaledVector(dirN, panelBody.r * 1.15);
+    const end = tmpC.copy(panel.position).addScaledVector(dirN, -(aspect >= 1.05 ? panelW : panelH) / 2);
+    pos.setXYZ(0, start.x, start.y, start.z); pos.setXYZ(1, end.x, end.y, end.z); pos.needsUpdate = true;
+    connector.material.opacity = 0.6 * clamp(panelU.uReveal.value * 2);
+    connector.visible = true;
+  } else connector.visible = false;
+
+  // Reticle
+  const rb = hovered || selected;
+  if (rb && world) {
+    rb.group.getWorldPosition(tmpB);
+    reticle.visible = true; reticle.position.copy(tmpB); reticle.quaternion.copy(camera.quaternion);
+    reticle.rotateZ(realTime * 0.4);
+    reticle.scale.setScalar(rb.r * 3.1 * (1 + 0.04 * Math.sin(realTime * 3)));
+    reticle.material.opacity += (0.85 - reticle.material.opacity) * damp(rdt, 6);
+  } else {
+    reticle.material.opacity += (0 - reticle.material.opacity) * damp(rdt, 6);
+    if (reticle.material.opacity < 0.01) reticle.visible = false;
+  }
+
+  // Tether
+  const tetherTarget = selected ? 1 : 0;
+  tetherU.uOpacity.value += (tetherTarget - tetherU.uOpacity.value) * damp(rdt, 3);
+  if (tetherU.uOpacity.value > 0.01 && (selected || panelBody) && world) {
+    (selected || panelBody).group.getWorldPosition(tmpB);
+    tmpA.set(0, relicY, 0);
+    const len = tmpA.distanceTo(tmpB);
+    tether.visible = true;
+    tether.position.copy(tmpA).lerp(tmpB, 0.5);
+    tether.quaternion.setFromUnitVectors(Y, tmpC.subVectors(tmpB, tmpA).normalize());
+    tether.scale.set(1, len, 1);
+    tetherU.uTime.value = simTime;
+  } else tether.visible = false;
+
+  // Post
+  bloom.strength = 0.85 + env.burst * 0.55 + env.charge * 0.35 + pingV * 0.2;
+  finalPass.uniforms.uTime.value = realTime;
+  finalPass.uniforms.uFlash.value = flash;
+  finalPass.uniforms.uAberration.value = 0.006 + env.burst * 0.022 + env.charge * 0.012;
+  finalPass.uniforms.uFreeze.value = 1 - timeScale;
+
+  // HUD clock
+  hudTick += rdt;
+  if (hudTick > 0.1) {
+    hudTick = 0;
+    const s = simTime, hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = (s % 60).toFixed(1).padStart(4, '0');
+    $('epoch').textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${ss}`;
+  }
+
+  // Camera shake during the charge (applied only for this render)
+  const shakeAmt = REDUCED ? 0 : env.charge * 0.05 + env.burst * 0.07 * Math.exp(-(awaken.t - 1.35) * 3);
+  shake.set((Math.random() - 0.5) * shakeAmt, (Math.random() - 0.5) * shakeAmt, (Math.random() - 0.5) * shakeAmt);
+  camera.position.add(shake);
+  composer.render();
+  camera.position.sub(shake);
+});
+
+// Reveal
+$('loader').classList.add('done');
+document.body.classList.add('ready');
+setTimeout(() => $('loader').remove(), 2200);
+lastInteract = 0;
+setTimeout(() => toast('Something here is still awake.', 4200), 2600);
+setTimeout(() => document.body.classList.add('hint-faded'), 16000);
+}
+</script>
+</body>
+</html>
